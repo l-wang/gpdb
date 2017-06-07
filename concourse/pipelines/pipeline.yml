@@ -743,6 +743,24 @@ jobs:
     file: gpdb_src/concourse/tasks/pxf_automation.yml
     image: centos-gpdb-dev-6
     params:
+    TARGET_OS: centos
+    TARGET_OS_VERSION: 6
+
+- name: regression_tests_pxf_centos
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos6]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos6
+      passed: [compile_gpdb_centos6]
+      trigger: true
+    - get: centos-gpdb-dev-6
+  - task: regression_tests_pxf
+    file: gpdb_src/concourse/tasks/regression_tests_pxf.yml
+    image: centos-gpdb-dev-6
+    params:
+      overwrite_pxf: false
       TARGET_OS: centos
       TARGET_OS_VERSION: 6
 
@@ -1639,4 +1657,3 @@ debug_sleep_anchor: &debug_sleep
         args: ['-c', 'sleep 6h']
     ensure:
       <<: *ccp_destroy
-
