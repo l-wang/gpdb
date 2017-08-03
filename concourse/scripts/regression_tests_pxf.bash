@@ -51,7 +51,7 @@ function setup_singlecluster() {
   pushd singlecluster && if [ -f ./*.tar.gz ]; then \
     unpack_tarball ./*.tar.gz; \
   fi && popd
-  install_pxf /home/build/singlecluster
+  install_pxf singlecluster
 
   pushd singlecluster/bin
     # set Standalone PXF mode without Hadoop
