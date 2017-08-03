@@ -41,6 +41,12 @@ function setup_gpadmin_user() {
 	./gpdb_src/concourse/scripts/setup_gpadmin_user.bash "$TARGET_OS"
 }
 
+unpack_tarball() {
+  local tarball=$1
+  echo "Unpacking tarball: $(ls ${tarball})"
+  tar xfp ${tarball} --strip-components=1
+}
+
 function setup_singlecluster() {
   pushd singlecluster && if [ -f ./*.tar.gz ]; then \
     unpack_tarball ./*.tar.gz; \
