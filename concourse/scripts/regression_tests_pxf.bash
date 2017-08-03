@@ -51,7 +51,7 @@ function setup_singlecluster() {
   pushd singlecluster && if [ -f ./*.tar.gz ]; then \
     unpack_tarball ./*.tar.gz; \
   fi && popd
-  install_pxf singlecluster
+  install_pxf ${1}/singlecluster
 
   pushd singlecluster/bin
     # set Standalone PXF mode without Hadoop
@@ -102,7 +102,7 @@ function _main() {
 	time make_cluster
 	time gen_env
 
-    time setup_singlecluster
+    time setup_singlecluster $(pwd)
 	time run_regression_test
 }
 
