@@ -23,7 +23,6 @@ groups:
   - storage
   - QP_memory-accounting
   - regression_tests_gphdfs_centos
-  - pxf_automation
   - regression_tests_pxf_centos
   - gpdb_rc_packaging_centos
   - gpdb_rc_packaging_sles
@@ -389,7 +388,6 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     regexp: deliverables/greenplum-db-(.*)-behave.tar.gz
 
-# PXF Tarball Artifact
 - name: pxf_tarball
   type: s3
   source:
@@ -398,15 +396,6 @@ resources:
     bucket: {{pxf-aws-bucket-name}}
     region_name: {{aws-region}}
     versioned_file: tarballs/pxf.tar.gz
-
-#- name: singlecluster-hdb
-#  type: s3
-#  source:
-#    access_key_id: {{hawq-aws-access-key-id}}
-#    secret_access_key: {{hawq-aws-secret-access-key}}
-#    bucket: {{pxf-aws-bucket-name}}
-#    region_name: {{aws-region}}
-#    versioned_file: singlecluster-without-pxf/singlecluster-HDP.tar.gz
 
 - name: singlecluster-cdh
   type: s3
@@ -727,32 +716,14 @@ jobs:
       TARGET_OS: centos
       TARGET_OS_VERSION: 6
 
-- name: pxf_automation
-  plan:
-  - aggregate:
-    - get: gpdb_src
-    - get: bin_gpdb
-      resource: bin_gpdb_centos6
-      trigger: true
-    - get: centos-gpdb-dev-6
-    - get: pxf_tarball
-      trigger: true
-    - get: singlecluster
-      resource: singlecluster-cdh
-      trigger: true
-  - task: smoke
-    file: gpdb_src/concourse/tasks/pxf_automation.yml
-    image: centos-gpdb-dev-6
-    params:
-      TARGET_OS: centos
-      TARGET_OS_VERSION: 6
-
 - name: regression_tests_pxf_centos
   plan:
   - aggregate:
     - get: gpdb_src
+      passed: [compile_gpdb_centos6]
     - get: bin_gpdb
       resource: bin_gpdb_centos6
+      passed: [compile_gpdb_centos6]
       trigger: true
     - get: centos-gpdb-dev-6
     - get: pxf_tarball
