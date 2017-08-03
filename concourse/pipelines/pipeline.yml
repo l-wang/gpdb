@@ -24,6 +24,7 @@ groups:
   - QP_memory-accounting
   - regression_tests_gphdfs_centos
   - pxf_automation
+  - regression_tests_pxf_centos
   - gpdb_rc_packaging_centos
   - gpdb_rc_packaging_sles
   - DPM_netbackup77
