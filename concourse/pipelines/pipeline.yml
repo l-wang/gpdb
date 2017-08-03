@@ -743,8 +743,8 @@ jobs:
     file: gpdb_src/concourse/tasks/pxf_automation.yml
     image: centos-gpdb-dev-6
     params:
-    TARGET_OS: centos
-    TARGET_OS_VERSION: 6
+      TARGET_OS: centos
+      TARGET_OS_VERSION: 6
 
 - name: regression_tests_pxf_centos
   plan:
