@@ -72,9 +72,6 @@ installcheck:
 	if [ "$(enable_mapreduce)" = "yes" ]; then \
 		$(MAKE) -C gpmapreduce installcheck; \
 	fi
-	if [ "$(with_pxf)" = "yes" ]; then \
-		$(MAKE) -C pxf installcheck; \
-	fi
 
 unittest-check:
 	@if [ "$(with_pxf)" = "yes" ]; then \
