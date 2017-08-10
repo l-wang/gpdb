@@ -754,10 +754,10 @@ jobs:
   plan:
   - aggregate:
     - get: gpdb_src
-      passed: [compile_gpdb_centos6]
+      passed: [compile_gpdb_pxf_centos6]
     - get: bin_gpdb
-      resource: bin_gpdb_centos6
-      passed: [compile_gpdb_centos6]
+      resource: bin_gpdb_pxf_centos6
+      passed: [compile_gpdb_pxf_centos6]
       trigger: true
     - get: singlecluster
       trigger: true
