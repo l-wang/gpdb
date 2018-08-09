@@ -135,6 +135,8 @@ SELECT gp_segment_id, * FROM tab5;
 UPDATE tab5 set (c1,c2,c3,c4,c5) = (1,2,3,0,6) where c5 = 1;
 SELECT gp_segment_id, * FROM tab5;
 
+EXPLAIN (COSTS OFF ) UPDATE tab3 SET C1 = C1 + 1, C5 = C5+1;
+
 -- clean up
 drop table tab3;
 drop table tab5;
