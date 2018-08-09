@@ -1489,10 +1489,28 @@ correct_delete_idxes(List *deleteColIdx, List *targetList, List *varsAbsent, int
  * deleteColIdx which contains placeholder, and value will be corrected later
  */
 static void
-process_targetlist_for_splitupdate(TupleDesc resultDesc, Index resultRelationsIdx, List *targetlist, List **varsAbsent,
-								   List **splitUpdateTargetList, List **insertColIdx, List **deleteColIdx)
-{
-	int attrIdx;
+process_targetlist_for_splitupdate(Relation parentRelation, Relation resultRelation, Index resultRelationsIdx, List *targetlist, List **varsAbsent,
+								   List **splitUpdateTargetList, List **insertColIdx, List **deleteColIdx) {
+	int 			attrIdx;
+	TupleDesc 		resultDesc;
+	GpPolicy 		*policy;
+	bool 			isDistributionKey;
+	PartitionNode	*pn;
+	List 			*partatts;
+
+	resultDesc = RelationGetDescr(resultRelation);
+	policy = resultRelation->rd_cdbpolicy;
+
+	/* See if it's partitioned */
+	if (parentRelation != NULL)
+	{
+		pn = RelationBuildPartitionDesc(parentRelation, false);
+		partatts = get_partition_attrs(pn);
+	}
+	else
+	{
+		partatts = NULL;
+	}
 
 	for (attrIdx = 1; attrIdx <= resultDesc->natts; ++attrIdx)
 	{
@@ -1500,9 +1518,25 @@ process_targetlist_for_splitupdate(TupleDesc resultDesc, Index resultRelationsId
 		Var					*splitVar;
 		TargetEntry			*splitTargetEntry;
 		Form_pg_attribute	attr;
+		int 				i;
 
 		*insertColIdx = lappend_int(*insertColIdx, attrIdx);
-		*deleteColIdx = lappend_int(*deleteColIdx, attrIdx);
+		isDistributionKey = false;
+
+		/*
+		 * For deletion, only the attrIdx of distribution keys and partition keys are necessary,
+		 * only storing those attrIdx will consume less network bandwidth during motion
+		 */
+		for (i = 0; i < policy->nattrs; i++)
+		{
+			if (attrIdx == policy->attrs[i] ||
+				list_member_int(partatts, attrIdx))
+			{
+				*deleteColIdx = lappend_int(*deleteColIdx, attrIdx);
+				isDistributionKey = true;
+				break;
+			}
+		}
 
 		tle = (TargetEntry *) list_nth(targetlist, attrIdx - 1);
 
@@ -1531,15 +1565,18 @@ process_targetlist_for_splitupdate(TupleDesc resultDesc, Index resultRelationsId
 		 *  so we record it as absent Vars, and we will add it to lower plan node in
 		 *  ensuing steps.
 		 */
-		if (IsA(tle->expr, Var) &&
+		if ((IsA(tle->expr, Var) &&
 			((Var *) tle->expr)->varnoold == resultRelationsIdx &&
-			((Var *) tle->expr)->varoattno == attrIdx)
+			((Var *) tle->expr)->varoattno == attrIdx) ||
+			!isDistributionKey)
 			continue;
 
 		*varsAbsent = lappend(*varsAbsent,
 							 makeVar(resultRelationsIdx, attrIdx, exprType((Node *) tle->expr),
 									 exprTypmod((Node *) tle->expr), exprCollation((Node *) tle->expr), 0 /* varlevelsup */));
 	}
+
+	list_free(partatts);
 }
 
 /*
@@ -1632,8 +1669,21 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	Relation		resultRelation;
 	TupleDesc		resultDesc;
 	bool			hasOids = false;
+	Relation		parentRelation;
+	RangeTblEntry	*parentRte;
 
 	Assert(IsA(mt, ModifyTable));
+
+	if (rel_is_child_partition(rte->relid))
+	{
+		parentRte = rt_fetch(root->parse->resultRelation, root->parse->rtable);
+
+		parentRelation = relation_open(parentRte->relid, NoLock);
+	}
+	else
+	{
+		parentRelation = NULL;
+	}
 
 	/* Suppose we already hold locks before caller */
 	resultRelation = relation_open(rte->relid, NoLock);
@@ -1653,7 +1703,7 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	 *   add the TargetEntry of old values to the lower plan node, we use the varsAbsent
 	 *   to record the TargetEntry for old values.
 	 */
-	process_targetlist_for_splitupdate(resultDesc, resultRelationsIdx, subplan->targetlist, &varsAbsent,
+	process_targetlist_for_splitupdate(parentRelation, resultRelation, resultRelationsIdx, subplan->targetlist, &varsAbsent,
 									   &splitUpdateTargetList, &insertColIdx, &deleteColIdx);
 
 	if (resultRelation->rd_rel->relhasoids)
@@ -1663,6 +1713,8 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	copy_junk_attributes(subplan->targetlist, &splitUpdateTargetList, resultDesc->natts);
 
 	relation_close(resultRelation, NoLock);
+	if (NULL != parentRelation)
+		relation_close(parentRelation, NoLock);
 
 	/* add the TargetEntry of old values to the lower plan node */
 	absentAttrStart = list_length(subplan->targetlist);
