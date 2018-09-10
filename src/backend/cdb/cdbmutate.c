@@ -1721,8 +1721,9 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 
 	/*
 	 * Now the plan tree has been determined, we have no choice, so use the
-	 * cost of lower plan node directly, plus the cpu_tuple_cost of each row
-	 * TODO: width here is incorrect, until we merge upstream commit 3fc6e2d
+	 * cost of lower plan node directly, plus the cpu_tuple_cost of each row.
+	 * GPDB_96_MERGE_FIXME: width here is incorrect, until we merge
+	 * upstream commit 3fc6e2d
 	 */
 	splitupdate->plan.startup_cost = subplan->startup_cost;
 	splitupdate->plan.total_cost = subplan->total_cost;
