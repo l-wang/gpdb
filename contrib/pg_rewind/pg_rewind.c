@@ -532,17 +532,17 @@ createBackupLabel(XLogRecPtr startpoint, TimeLineID starttli, XLogRecPtr checkpo
 static void
 checkControlFile(ControlFileData *ControlFile)
 {
-	pg_crc32	crc;
+	pg_crc32c	crc;
 
 	/* Calculate CRC */
-	INIT_CRC32(crc);
-	COMP_CRC32(crc,
+	INIT_CRC32C(crc);
+	COMP_CRC32C(crc,
 			   (char *) ControlFile,
 			   offsetof(ControlFileData, crc));
-	FIN_CRC32(crc);
+	FIN_CRC32C(crc);
 
 	/* And simply compare it */
-	if (!EQ_CRC32(crc, ControlFile->crc))
+	if (!EQ_CRC32C(crc, ControlFile->crc))
 	{
 		fprintf(stderr, "unexpected control file CRC\n");
 		exit(1);
@@ -581,11 +581,11 @@ updateControlFile(ControlFileData *ControlFile, char *datadir)
 		return;
 
 	/* Recalculate CRC of control file */
-	INIT_CRC32(ControlFile->crc);
-	COMP_CRC32(ControlFile->crc,
+	INIT_CRC32C(ControlFile->crc);
+	COMP_CRC32C(ControlFile->crc,
 			   (char *) ControlFile,
 			   offsetof(ControlFileData, crc));
-	FIN_CRC32(ControlFile->crc);
+	FIN_CRC32C(ControlFile->crc);
 
 	/*
 	 * Write out PG_CONTROL_SIZE bytes into pg_control by zero-padding

@@ -8,7 +8,7 @@ PGAPPICON = win32
 
 PROGRAM = pg_rewind
 OBJS	= pg_rewind.o parsexlog.o xlogreader.o util.o datapagemap.o timeline.o \
-	fetch.o copy_fetch.o libpq_fetch.o filemap.o
+	fetch.o copy_fetch.o libpq_fetch.o filemap.o compat.o
 
 man_DOC = pg_rewind.1
 
@@ -57,6 +57,10 @@ endif
 
 # xlogreader.c is symlinked from the PostgreSQL sources.
 xlogreader.c: % : $(top_srcdir)/src/backend/access/transam/%
+	rm -f $@ && $(LN_S) $< .
+
+# compat.c is symlinked from the PostgreSQL sources.
+compat.c: % : $(top_srcdir)/contrib/pg_xlogdump/%
 	rm -f $@ && $(LN_S) $< .
 
 check-local:

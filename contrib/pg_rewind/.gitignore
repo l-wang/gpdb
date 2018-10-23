@@ -20,6 +20,7 @@
 
 # Files generated during build
 /xlogreader.c
+/compat.c
 
 # Binaries
 /pg_rewind

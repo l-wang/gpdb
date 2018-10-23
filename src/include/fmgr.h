@@ -18,6 +18,8 @@
 #ifndef FMGR_H
 #define FMGR_H
 
+#include "postgres.h"
+
 /* We don't want to include primnodes.h here, so make some stub references */
 typedef struct Node *fmNodePtr;
 typedef struct Aggref *fmAggrefPtr;
