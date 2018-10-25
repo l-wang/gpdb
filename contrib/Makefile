@@ -34,6 +34,7 @@ SUBDIRS = \
 		pgcrypto	\
 		pgrowlocks	\
 		pgstattuple	\
+		pg_rewind	\
 		pg_xlogdump	\
 		postgres_fdw	\
 		seg		\

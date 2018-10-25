@@ -19,6 +19,7 @@ all:
 	$(MAKE) -C contrib/dblink all
 	$(MAKE) -C contrib/indexscan all
 	$(MAKE) -C contrib/pageinspect all  # needed by src/test/isolation
+	$(MAKE) -C contrib/pg_rewind all
 	$(MAKE) -C contrib/pg_upgrade_support all
 	$(MAKE) -C contrib/pg_upgrade all
 	$(MAKE) -C contrib/pg_xlogdump all
@@ -52,6 +53,7 @@ install:
 	$(MAKE) -C contrib/dblink $@
 	$(MAKE) -C contrib/indexscan $@ 
 	$(MAKE) -C contrib/pageinspect $@  # needed by src/test/isolation
+	$(MAKE) -C contrib/pg_rewind $@
 	$(MAKE) -C contrib/pg_upgrade_support $@
 	$(MAKE) -C contrib/pg_upgrade $@
 	$(MAKE) -C contrib/pg_xlogdump $@
@@ -156,6 +158,7 @@ $(call recurse,installcheck-world, \
 installcheck-world: installcheck-gpcheckcat
 installcheck-gpcheckcat:
 	gpcheckcat -A
+$(call recurse,installcheck-world,contrib/pg_rewind,check)
 $(call recurse,installcheck-world,gpcontrib/gp_replica_check,installcheck)
 $(call recurse,installcheck-world,contrib/pg_upgrade,check)
 

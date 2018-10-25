@@ -73,6 +73,8 @@ check-remote:
 
 check-both: check-local check-remote
 
+check: check-both
+
 install: install-man
 install-man:
 	$(MKDIR_P) '$(DESTDIR)$(mandir)/man1'
