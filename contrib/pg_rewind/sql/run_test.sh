@@ -29,19 +29,12 @@
 
 # Initialize master, data checksums are mandatory
 rm -rf $TEST_MASTER
-initdb -N -A trust -D $TEST_MASTER >>$log_path
+initdb --data-checksums -N -A trust -D $TEST_MASTER >>$log_path 2>&1
 
 # Custom parameters for master's postgresql.conf
 cat >> $TEST_MASTER/postgresql.conf <<EOF
-wal_level = hot_standby
-max_wal_senders = 2
-wal_keep_segments = 20
 checkpoint_segments = 50
 shared_buffers = 1MB
-wal_log_hints = on
-log_line_prefix = 'M  %m %p '
-hot_standby = on
-autovacuum = off
 max_connections = 50
 listen_addresses = '$LISTEN_ADDRESSES'
 port = $PORT_MASTER
@@ -58,7 +51,7 @@ EOF
 echo "Master initialized."
 before_master
 
-pg_ctl -w -D $TEST_MASTER start >>$log_path 2>&1
+pg_ctl -w -D $TEST_MASTER start -o "-p ${PORT_MASTER} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
 
 # up standby
 echo "Master running."
@@ -78,7 +71,7 @@ recovery_target_timeline='latest'
 EOF
 
 # Start standby
-pg_ctl -w -D $TEST_STANDBY start >>$log_path 2>&1
+pg_ctl -w -D $TEST_STANDBY start -o "-p ${PORT_STANDBY} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
 
 #### Now run the test-specific parts to run after standby has been started
 # up standby
@@ -90,8 +83,10 @@ sleep 1
 
 # Now promote slave and insert some new data on master, this will put
 # the master out-of-sync with the standby.
+
 pg_ctl -w -D $TEST_STANDBY promote >>$log_path 2>&1
-sleep 1
+
+wait_until_standby_is_promoted >>$log_path 2>&1
 
 #### Now run the test-specific parts to run after promotion
 echo "Standby promoted."
@@ -125,7 +120,7 @@ if [ $TEST_SUITE == "local" ]; then
 		--target-pgdata=$TEST_MASTER >>$log_path 2>&1
 elif [ $TEST_SUITE == "remote" ]; then
 	# Do rewind using a remote connection as source
-	pg_rewind \
+	PGOPTIONS=${PGOPTIONS_UTILITY} pg_rewind \
 		--verbose \
 		--source-server="port=$PORT_STANDBY dbname=postgres" \
 		--target-pgdata=$TEST_MASTER >>$log_path 2>&1
@@ -137,7 +132,7 @@ fi
 
 # After rewind is done, restart the source node in local mode.
 if [ $TEST_SUITE == "local" ]; then
-	pg_ctl -w -D $TEST_STANDBY start >>$log_path 2>&1
+	pg_ctl -w -D $TEST_STANDBY start -o "-p ${PORT_STANDBY} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
 fi
 
 # Now move back postgresql.conf with old settings
@@ -151,7 +146,7 @@ recovery_target_timeline='latest'
 EOF
 
 # Restart the master to check that rewind went correctly
-pg_ctl -w -D $TEST_MASTER start >>$log_path 2>&1
+pg_ctl -w -D $TEST_MASTER start -o "-p ${PORT_MASTER} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
 
 #### Now run the test-specific parts to check the result
 echo "Old master restarted after rewind."

@@ -69,5 +69,16 @@ PG_VERSION_NUM=90401
 PORT_MASTER=`expr $PG_VERSION_NUM % 16384 + 49152`
 PORT_STANDBY=`expr $PORT_MASTER + 1`
 
+PGOPTIONS_UTILITY='-c gp_session_role=utility'
 MASTER_PSQL="psql -a --no-psqlrc -p $PORT_MASTER"
 STANDBY_PSQL="psql -a --no-psqlrc -p $PORT_STANDBY"
+
+function wait_until_standby_is_promoted {
+   retry=50
+   until [ $retry -le 0 ]
+   do
+      PGOPTIONS=${PGOPTIONS_UTILITY} $STANDBY_PSQL -c "select 1;" && break
+      retry=$[$retry-1]
+      sleep 0.2
+   done
+}
