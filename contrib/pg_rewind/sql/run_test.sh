@@ -51,7 +51,7 @@ EOF
 echo "Master initialized."
 before_master
 
-pg_ctl -w -D $TEST_MASTER start -o "-p ${PORT_MASTER} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
+pg_ctl -w -D $TEST_MASTER start -o "$MASTER_PG_CTL_OPTIONS" >>$log_path 2>&1
 
 # up standby
 echo "Master running."
@@ -71,7 +71,7 @@ recovery_target_timeline='latest'
 EOF
 
 # Start standby
-pg_ctl -w -D $TEST_STANDBY start -o "-p ${PORT_STANDBY} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
+pg_ctl -w -D $TEST_STANDBY start -o "$STANDBY_PG_CTL_OPTIONS" >>$log_path 2>&1
 
 #### Now run the test-specific parts to run after standby has been started
 # up standby
@@ -132,7 +132,7 @@ fi
 
 # After rewind is done, restart the source node in local mode.
 if [ $TEST_SUITE == "local" ]; then
-	pg_ctl -w -D $TEST_STANDBY start -o "-p ${PORT_STANDBY} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
+	pg_ctl -w -D $TEST_STANDBY start -o "$STANDBY_PG_CTL_OPTIONS" >>$log_path 2>&1
 fi
 
 # Now move back postgresql.conf with old settings
@@ -146,7 +146,7 @@ recovery_target_timeline='latest'
 EOF
 
 # Restart the master to check that rewind went correctly
-pg_ctl -w -D $TEST_MASTER start -o "-p ${PORT_MASTER} --gp_dbid=2 --gp_num_contents_in_cluster=3 --gp_contentid=0" >>$log_path 2>&1
+pg_ctl -w -D $TEST_MASTER start -o "$MASTER_PG_CTL_OPTIONS" >>$log_path 2>&1
 
 #### Now run the test-specific parts to check the result
 echo "Old master restarted after rewind."
