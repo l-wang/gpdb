@@ -8,7 +8,7 @@
  *-------------------------------------------------------------------------
  */
 #include "postgres_fe.h"
-
+#include "postgres.h"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -24,8 +24,8 @@
 #include "access/xlog_internal.h"
 #include "catalog/catversion.h"
 #include "catalog/pg_control.h"
-#include "common/restricted_token.h"
 #include "getopt_long.h"
+#include "utils/palloc.h"
 #include "storage/bufpage.h"
 
 static void usage(const char *progname);
@@ -194,8 +194,6 @@ main(int argc, char **argv)
 				progname);
 	}
 #endif
-
-	get_restricted_token(progname);
 
 	/* Connect to remote server */
 	if (connstr_source)
