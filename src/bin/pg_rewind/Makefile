@@ -26,6 +26,9 @@ OBJS	= pg_rewind.o parsexlog.o xlogreader.o datapagemap.o timeline.o \
 
 EXTRA_CLEAN = xlogreader.c compact.c
 
+REGRESS = basictest extrafiles databases pg_xlog_symlink
+REGRESS_OPTS=--use-existing --launcher=./launcher
+
 all: pg_rewind
 
 pg_rewind: $(OBJS) | submake-libpq submake-libpgport
@@ -51,8 +54,18 @@ clean distclean maintainer-clean:
 	rm -f pg_rewind$(X) $(OBJS) xlogreader.c
 	rm -rf tmp_check
 
-check:
-	$(prove_check)
+check-local:
+	echo "Running tests against local data directory, in copy-mode"
+	bindir=$(bindir) TEST_SUITE="local" $(MAKE) installcheck
 
+check-remote:
+	echo "Running tests against a running standby, via libpq"
+	bindir=$(bindir) TEST_SUITE="remote" $(MAKE) installcheck
+
+check-both: check-local check-remote
+
+check: check-both
+
+# against installed postmaster
 installcheck:
-	$(prove_installcheck)
+	$(pg_regress_installcheck) $(REGRESS_OPTS) $(REGRESS)
