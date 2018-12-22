@@ -5054,13 +5054,11 @@ atpxPart_validate_spec(PartitionBy *pBy,
 	PartitionNode *pNode_tmpl = NULL;
 
 	/* get the table column defs */
+	RangeVar *parent_rv = makeRangeVar(get_namespace_name(RelationGetNamespace(rel)),pstrdup(RelationGetRelationName(rel)), -1);
+	parent_rv->relpersistence = rel->rd_rel->relpersistence;
 	schema =
 		MergeAttributes(schema,
-						list_make1(
-								   makeRangeVar(
-												get_namespace_name(
-																   RelationGetNamespace(rel)),
-												pstrdup(RelationGetRelationName(rel)), -1)),
+						list_make1(parent_rv),
 						RELPERSISTENCE_PERMANENT, /* GPDB_91_MERGE_FIXME: what if it's unlogged or temp? Where to get a proper value for this? */
 						true /* isPartitioned */ ,
 						&inheritOids, &old_constraints, &parentOidCount);
@@ -6481,6 +6479,7 @@ atpxPartAddList(Relation rel,
 	ct = makeNode(CreateStmt);
 	ct->relation = makeRangeVar(get_namespace_name(RelationGetNamespace(par_rel)),
 								RelationGetRelationName(par_rel), -1);
+	ct->relation->relpersistence = rel->rd_rel->relpersistence;
 
 	/*
 	 * in analyze.c, fill in tableelts with a list of TableLikeClause of the
