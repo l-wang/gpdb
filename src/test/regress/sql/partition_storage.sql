@@ -460,3 +460,15 @@ drop table if exists co_can cascade;
 
 -- Split default partition
  alter table pt_co_tab_rng split default partition start(45) end(60) into (partition dft, partition two);
+
+-- Given an unlogged partition table with two leaf partitions
+CREATE UNLOGGED TABLE unlogged_t1(a int) PARTITION BY RANGE(a) (START(1) END(4) EVERY (2));
+SELECT relpersistence FROM pg_class, pg_partitions WHERE relname = tablename AND relname = 'unlogged_t1';
+-- When I split the first partition
+ALTER TABLE unlogged_t1 SPLIT PARTITION FOR(2) AT(2) INTO (PARTITION p1, PARTITION p2);
+-- Then the resulting two new relations have relation persistence type 'u' for unlogged
+SELECT relpersistence FROM pg_class, pg_partitions WHERE relname = tablename AND relname = 'unlogged_t1';
+
+--start_ignore
+DROP TABLE IF EXISTS unlogged_t1;
+--end_ignore
