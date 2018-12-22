@@ -5053,15 +5053,18 @@ atpxPart_validate_spec(PartitionBy *pBy,
 	int			result;
 	PartitionNode *pNode_tmpl = NULL;
 
-	/* get the table column defs */
-	RangeVar *parent_rv = makeRangeVar(get_namespace_name(RelationGetNamespace(rel)),pstrdup(RelationGetRelationName(rel)), -1);
+	RangeVar *parent_rv = makeRangeVar(
+		get_namespace_name(RelationGetNamespace(rel)),
+		pstrdup(RelationGetRelationName(rel)),
+		-1);
 	parent_rv->relpersistence = rel->rd_rel->relpersistence;
+	/* MergeAttributes is used here to get the existing table column definitions */
 	schema =
 		MergeAttributes(schema,
-						list_make1(parent_rv),
-						RELPERSISTENCE_PERMANENT, /* GPDB_91_MERGE_FIXME: what if it's unlogged or temp? Where to get a proper value for this? */
-						true /* isPartitioned */ ,
-						&inheritOids, &old_constraints, &parentOidCount);
+			list_make1(parent_rv),
+			rel->rd_rel->relpersistence, /* pass the relpersistence of root part here since MergeAttributes uses it */
+			true /* isPartitioned */ ,
+			&inheritOids, &old_constraints, &parentOidCount);
 
 	spec->partElem = list_make1(pelem);
 
@@ -6543,6 +6546,8 @@ atpxPartAddList(Relation rel,
 	if (!ct->distributedBy)
 		ct->distributedBy = make_distributedby_for_rel(rel);
 
+	/* for ADD PARTITION or SPLIT PARTITION, there should be no case where the rel is temporary */
+	Assert(rel->rd_rel->relpersistence != RELPERSISTENCE_TEMP);
 	/* this function does transformExpr on the boundary specs */
 	(void) atpxPart_validate_spec(pBy, rel, ct, pelem, pNode, partName,
 								  isDefault, part_type, "");
