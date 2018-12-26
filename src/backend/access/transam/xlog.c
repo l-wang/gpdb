@@ -11198,6 +11198,14 @@ XLogPageRead(XLogReaderState *xlogreader, XLogRecPtr targetPagePtr, int reqLen,
 	XLByteToSeg(targetPagePtr, targetSegNo);
 	targetPageOff = targetPagePtr % XLogSegSize;
 
+	elogif(debug_xlog_record_read, LOG,
+		   "xlog page read -- targetPagePtr is %X/%X, targetRecPtr is %X/%X, reqLen is %d, "
+	       "readSegNo " UINT64_FORMAT ,
+		   (uint32) (targetPagePtr >> 32), (uint32) targetPagePtr,
+		   (uint32) (targetRecPtr >> 32), (uint32) targetRecPtr,
+		   reqLen,
+		   readSegNo);
+
 	/*
 	 * See if we need to switch to a new segment because the requested record
 	 * is not in the currently open one.
