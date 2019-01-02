@@ -5060,8 +5060,8 @@ atpxPart_validate_spec(PartitionBy *pBy,
 	parent_rv->relpersistence = rel->rd_rel->relpersistence;
 	/* MergeAttributes is used here to get the existing table column definitions */
 	schema =
-		MergeAttributes(schema,
-			list_make1(parent_rv),
+		GetParentSchema(schema,
+			parent_rv,
 			rel->rd_rel->relpersistence, /* pass the relpersistence of root part here since MergeAttributes uses it */
 			true /* isPartitioned */ ,
 			&inheritOids, &old_constraints, &parentOidCount);

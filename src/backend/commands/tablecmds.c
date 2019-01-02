@@ -2013,6 +2013,198 @@ storage_name(char c)
 	}
 }
 
+/* confirm there is no way to get multiple parents for leaf parts */
+List *
+GetParentSchema(RangeVar *parent, char relpersistence,
+				Oid *parentOid, List *parentConstraints)
+{
+	Relation	relation;
+	TupleDesc	tupleDesc;
+	List	   *inhSchema = NIL;
+	TupleConstr *constr;
+	List *child_constraints = NIL;
+	AttrNumber *newattno;
+	AttrNumber	parent_attno;
+	int child_attno = 0;
+	bool parentHashOids = false;
+
+	relation = heap_openrv(parent, ShareUpdateExclusiveLock);
+
+	if (relation->rd_rel->relkind != RELKIND_RELATION)
+		ereport(ERROR,
+				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+					errmsg("inherited relation \"%s\" is not a table",
+						   parent->relname)));
+
+	if (!pg_class_ownercheck(RelationGetRelid(relation), GetUserId()))
+		aclcheck_error(ACLCHECK_NOT_OWNER, ACL_KIND_CLASS,
+					   RelationGetRelationName(relation));
+
+	parentOid = RelationGetRelid(relation);
+
+	if (relation->rd_rel->relhasoids)
+		parentHasOids = true;
+	tupleDesc = RelationGetDescr(relation);
+	constr = tupleDesc->constr;
+
+	/*
+	* newattno[] will contain the child-table attribute numbers for the
+	* attributes of this parent table.  (They are not the same for
+	* parent after the first one, nor if we have dropped columns.)
+	*/
+	newattno = (AttrNumber *)
+		palloc0(tupleDesc->natts * sizeof(AttrNumber));
+
+	for (parent_attno = 1; parent_attno <= tupleDesc->natts;
+		 parent_attno++)
+	{
+		Form_pg_attribute attribute = tupleDesc->attrs[parent_attno - 1];
+		char	   *attributeName = NameStr(attribute->attname);
+		int			exist_attno;
+		ColumnDef  *def;
+
+		/*
+		* Ignore dropped columns in the parent.
+		*/
+		if (attribute->attisdropped)
+			continue;		/* leave newattno entry as zero */
+
+		/* create a new inherited column */
+		def = makeNode(ColumnDef);
+		def->colname = pstrdup(attributeName);
+		def->typeName = makeTypeNameFromOid(attribute->atttypid,
+												attribute->atttypmod);
+		def->inhcount = 1;
+		def->is_local = false;
+		def->is_not_null = attribute->attnotnull;
+		def->is_from_type = false;
+		def->storage = attribute->attstorage;
+		def->raw_default = NULL;
+		def->cooked_default = NULL;
+		def->collClause = NULL;
+		def->collOid = attribute->attcollation;
+		def->constraints = NIL;
+		def->location = -1;
+		newattno[parent_attno - 1] = ++child_attno;
+
+
+		/*
+		* Copy default if any
+		*/
+		if (attribute->atthasdef)
+		{
+			Node	   *this_default = NULL;
+			AttrDefault *attrdef;
+			int			i;
+
+			/* Find default in constraint structure */
+			Assert(constr != NULL);
+			attrdef = constr->defval;
+			for (i = 0; i < constr->num_defval; i++)
+			{
+				if (attrdef[i].adnum == parent_attno)
+				{
+					this_default = stringToNode(attrdef[i].adbin);
+					break;
+				}
+			}
+			Assert(this_default != NULL);
+
+			/*
+				* If default expr could contain any vars, we'd need to fix
+				* 'em, but it can't; so default is ready to apply to child.
+				*
+				* If we already had a default from some prior parent, check
+				* to see if they are the same.  If so, no problem; if not,
+				* mark the column as having a bogus default. Below, we will
+				* complain if the bogus default isn't overridden by the child
+				* schema.
+				*/
+			Assert(def->raw_default == NULL);
+			if (def->cooked_default == NULL)
+				def->cooked_default = this_default;
+			else if (!equal(def->cooked_default, this_default))
+			{
+				def->cooked_default = &bogus_marker;
+				have_bogus_defaults = true;
+			}
+		}
+	}
+
+	/*
+	* Now copy the CHECK constraints of this parent, adjusting attnos using
+	* the completed newattno[] map.
+	*/
+	if (constr && constr->num_check > 0)
+	{
+		ConstrCheck *check = constr->check;
+		int			i;
+
+		for (i = 0; i < constr->num_check; i++)
+		{
+			char	   *name = check[i].ccname;
+			Node	   *expr;
+			bool		found_whole_row;
+
+			/* ignore if the constraint is non-inheritable */
+			if (check[i].ccnoinherit)
+				continue;
+
+			/* Adjust Vars to match new table's column numbering */
+			expr = map_variable_attnos(stringToNode(check[i].ccbin),
+									   1, 0,
+									   newattno, tupleDesc->natts,
+									   &found_whole_row);
+
+			/*
+			* For the moment we have to reject whole-row variables. We
+			* could convert them, if we knew the new table's rowtype OID,
+			* but that hasn't been assigned yet.
+			*/
+			if (found_whole_row)
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							errmsg("cannot convert whole-row table reference"),
+							errdetail("Constraint \"%s\" contains a whole-row reference to table \"%s\".",
+									  name,
+									  RelationGetRelationName(relation))));
+
+
+			/* nope, this is a new one */
+			CookedConstraint *cooked;
+
+			cooked = (CookedConstraint *) palloc(sizeof(CookedConstraint));
+			cooked->contype = CONSTR_CHECK;
+			cooked->name = pstrdup(name);
+			cooked->attnum = 0; /* not used for constraints */
+			cooked->expr = expr;
+			cooked->skip_validation = false;
+			cooked->is_local = false;
+			cooked->inhcount = 1;
+			cooked->is_no_inherit = false;
+			child_constraints = lappend(child_constraints, cooked);
+		}
+	}
+
+	pfree(newattno);
+
+	/*
+	* Close the parent rel, but keep our AccessShareLock on it until xact
+	* commit.  That will prevent someone else from deleting or ALTERing
+	* the parent before the child is committed.
+	*/
+	heap_close(relation, NoLock);
+
+	/* need to figure out what else it needs */
+	inhSchema = lappend(inhSchema, def);
+
+	*supconstr = child_constraints;
+	*supOids = list_make(parentOid);
+	*supOidCount = parentHasOid;
+	return 
+}
+
+
 /*----------
  * MergeAttributes
  *		Returns new schema given initial schema and superclasses.
