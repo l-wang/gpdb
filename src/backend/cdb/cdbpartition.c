@@ -5047,24 +5047,15 @@ atpxPart_validate_spec(PartitionBy *pBy,
 {
 	PartitionSpec *spec = makeNode(PartitionSpec);
 	List	   *schema = NIL;
-	List	   *inheritOids;
-	List	   *old_constraints;
-	int			parentOidCount;
-	int			result;
-	PartitionNode *pNode_tmpl = NULL;
-
+	List *constraints = NIL;
 	RangeVar *parent_rv = makeRangeVar(
 		get_namespace_name(RelationGetNamespace(rel)),
 		pstrdup(RelationGetRelationName(rel)),
 		-1);
-	parent_rv->relpersistence = rel->rd_rel->relpersistence;
-	/* MergeAttributes is used here to get the existing table column definitions */
-	schema =
-		GetParentSchema(schema,
-			parent_rv,
-			rel->rd_rel->relpersistence, /* pass the relpersistence of root part here since MergeAttributes uses it */
-			true /* isPartitioned */ ,
-			&inheritOids, &old_constraints, &parentOidCount);
+	SetSchemaAndConstraints(parent_rv, &schema, &constraints);
+
+	int			result;
+	PartitionNode *pNode_tmpl = NULL;
 
 	spec->partElem = list_make1(pelem);
 
