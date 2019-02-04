@@ -1007,8 +1007,9 @@ dropdb(const char *dbname, bool missing_ok)
 	/*
 	 * Remove all tablespace subdirs belonging to the database.
 	 */
-    SIMPLE_FAULT_INJECTOR(InsideDropDbTransaction);
-    remove_dbtablespaces(db_id);
+	remove_dbtablespaces(db_id);
+	SIMPLE_FAULT_INJECTOR(InsideDropDbTransaction);
+
 
 	/*
 	 * Close pg_database, but keep lock till commit.

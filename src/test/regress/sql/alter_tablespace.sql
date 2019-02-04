@@ -10,7 +10,7 @@ CREATE DATABASE mydatabase;
 -- And create a table in that database with data
 DROP TABLE IF EXISTS mytable;
 CREATE TABLE mytable(id int, name text);
-INSERT INTO mytable VALUES (1, 'a'), (2, 'b'), (4, 'c');
+INSERT INTO mytable VALUES (1, 'a'), (2, 'b'), (5, 'c');
 
 -- When we create a tablespace
 -- start_ignore
@@ -29,10 +29,10 @@ ALTER DATABASE mydatabase SET TABLESPACE mytablespace;
 -- where as user created tablespaces begin with 'pg_tblspc'
 \c mydatabase
 
-SELECT COUNT(*) FROM (SELECT pg_relation_filepath('mytable')) a where a.pg_relation_filepath LIKE 'pg_tblspc%';
+SELECT 1 WHERE pg_relation_filepath('mytable') LIKE 'pg_tblspc%';
 SELECT COUNT(*) FROM (SELECT gp_segment_id, pg_relation_filepath('mytable') FROM gp_dist_random('gp_id')) a where a.pg_relation_filepath LIKE 'pg_tblspc%';
 
-SELECT COUNT(*) FROM (SELECT pg_relation_filepath('mytable')) a where a.pg_relation_filepath LIKE 'base%';
+SELECT 1 WHERE pg_relation_filepath('mytable') LIKE 'base%';
 SELECT COUNT(*) FROM (SELECT gp_segment_id, pg_relation_filepath('mytable') FROM gp_dist_random('gp_id')) a where a.pg_relation_filepath LIKE 'base%';
 
 SELECT gp_segment_id, * FROM mytable;
@@ -51,7 +51,7 @@ CREATE DATABASE mydatabase;
 -- And create a table in that database with data
 DROP TABLE IF EXISTS mytable;
 CREATE TABLE mytable(id int, name text);
-INSERT INTO mytable VALUES (1, 'a'), (2, 'b'), (4, 'c');
+INSERT INTO mytable VALUES (1, 'a'), (2, 'b'), (5, 'c');
 
 -- When we create a tablespace
 DROP TABLESPACE IF EXISTS mytablespace;
@@ -73,10 +73,10 @@ ALTER DATABASE mydatabase SET TABLESPACE mytablespace;
 -- old tablespace
 \c mydatabase
 
-SELECT COUNT(*) FROM (SELECT pg_relation_filepath('mytable')) a where a.pg_relation_filepath LIKE 'pg_tblspc%';
+SELECT 1 WHERE pg_relation_filepath('mytable') LIKE 'pg_tblspc%';
 SELECT COUNT(*) FROM (SELECT gp_segment_id, pg_relation_filepath('mytable') FROM gp_dist_random('gp_id')) a where a.pg_relation_filepath LIKE 'pg_tblspc%';
 
-SELECT COUNT(*) FROM (SELECT pg_relation_filepath('mytable')) a where a.pg_relation_filepath LIKE 'base%';
+SELECT 1 WHERE pg_relation_filepath('mytable') LIKE 'base%';
 SELECT COUNT(*) FROM (SELECT gp_segment_id, pg_relation_filepath('mytable') FROM gp_dist_random('gp_id')) a where a.pg_relation_filepath LIKE 'base%';
 
 SELECT gp_segment_id, * FROM mytable;
