@@ -1081,6 +1081,17 @@ vacuumStatement_Relation(VacuumStmt *vacstmt, Oid relid,
 		if (Gp_role == GP_ROLE_EXECUTE)
 			dropPhase = vacuumStatement_IsInAppendOnlyDropPhase(vacstmt);
 
+#ifdef FAULT_INJECTOR
+		if (dropPhase)
+		{
+			FaultInjector_InjectFaultIfSet(
+				CompactionBeforeSegmentFileDropPhase,
+				DDLNotSpecified,
+				"",    // databaseName
+				""); // tableName
+		}
+#endif
+
 		/*
 		 * Open the relation with an appropriate lock, and check the permission.
 		 */

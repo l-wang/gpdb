@@ -198,14 +198,6 @@ lazy_vacuum_rel(Relation onerel, VacuumStmt *vacstmt,
 		elevel = DEBUG2; /* vacuum and analyze messages aren't interesting from the QD */
 
 #ifdef FAULT_INJECTOR
-	if (vacuumStatement_IsInAppendOnlyDropPhase(vacstmt))
-	{
-			FaultInjector_InjectFaultIfSet(
-				CompactionBeforeSegmentFileDropPhase,
-				DDLNotSpecified,
-				"",	// databaseName
-				""); // tableName
-	}
 	if (vacummStatement_IsInAppendOnlyCleanupPhase(vacstmt))
 	{
 			FaultInjector_InjectFaultIfSet(
