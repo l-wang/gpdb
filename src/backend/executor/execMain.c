@@ -1497,6 +1497,7 @@ InitializeResultRelations(PlannedStmt *plannedstmt, EState *estate, CmdType oper
 	else
 	{
 		List 	*all_relids = NIL;
+		List    *part_relids = NIL;
 		Oid		 relid = getrelid(linitial_int(plannedstmt->resultRelations), rangeTable);
 
 		if (rel_is_child_partition(relid))
@@ -1510,8 +1511,22 @@ InitializeResultRelations(PlannedStmt *plannedstmt, EState *estate, CmdType oper
 		 * list all the relids that may take part in this insert operation
 		 */
 		all_relids = lappend_oid(all_relids, relid);
-		all_relids = list_concat(all_relids,
-								 all_partition_relids(estate->es_result_partitions));
+		part_relids = all_partition_relids(estate->es_result_partitions);
+		all_relids = list_concat(all_relids, part_relids);
+
+		/*
+		 * Insert needs to acquire lock on the partition relations as well to
+		 * prevent VACUUM drop phase from acquiring AccessExclusiveLock on
+		 * the same partition relation on master.
+		 */
+		if (operation == CMD_INSERT)
+		{
+			foreach(l, part_relids)
+			{
+				Oid 	partResultRelationOid = lfirst_int(l);
+				LockRelationOid(partResultRelationOid, lockmode);
+			}
+		}
 		
         /* 
          * We also assign a segno for a deletion operation.
