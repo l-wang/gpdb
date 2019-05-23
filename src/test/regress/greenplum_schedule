@@ -222,4 +222,6 @@ test: oid_wraparound
 
 test: autovacuum-template0
 
+test: recoverseg_dispatch_deadlock
+
 # end of tests

@@ -184,6 +184,8 @@ typedef enum FaultInjectorIdentifier_e {
 	CompactionBeforeSegmentFileDropPhase,
 	CompactionBeforeCleanupPhase,
 
+	DispatchResultPoll,
+
 	AppendOnlyInsert,
 	AppendOnlyDelete,
 	AppendOnlyUpdate,

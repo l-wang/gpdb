@@ -454,6 +454,14 @@ checkDispatchResult(CdbDispatcherState *ds,
 		else
 			timeout = DISPATCH_WAIT_CANCEL_TIMEOUT_MSEC;
 
+#ifdef FAULT_INJECTOR
+		if (SIMPLE_FAULT_INJECTOR(DispatchResultPoll) == FaultInjectorTypeSkip)
+		{
+			timeoutCounter = 500;
+			n = 0;
+		}
+		else
+#endif
 		n = poll(fds, nfds, timeout);
 
 		/* poll returns with an error, including one due to an interrupted call */

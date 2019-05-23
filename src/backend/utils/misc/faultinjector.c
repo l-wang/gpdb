@@ -281,6 +281,8 @@ FaultInjectorIdentifierEnumToString[] = {
 		/* inject fault after compaction, but before the drop of the
 		 * segment file */
 	_("compaction_before_cleanup_phase"),
+	    /* inject fault before polling for dispatch results */
+	_("dispatch_result_poll"),
 		/* inject fault after compaction and drop, but before
 		 * the cleanup phase for a relation */
 	_("appendonly_insert"),
@@ -1069,6 +1071,8 @@ FaultInjector_NewHashEntry(
 			case CreateResourceGroupFail:
 			case CreateGangInProgress:
 			case GangCreated:
+
+			case DispatchResultPoll:
 
 			case DecreaseToastMaxChunkSize:
 			case ProcessStartupPacketFault:
