@@ -185,13 +185,21 @@ void FtsRequestMasterShutdown()
 bool
 FtsTestConnection(CdbComponentDatabaseInfo *failedDBInfo, bool fullScan)
 {
+	LOCKTAG		tag;
+	bool		lockHeldByMe;
+
 	/* master is always reported as alive */
 	if (failedDBInfo->segindex == MASTER_SEGMENT_ID)
 	{
 		return true;
 	}
 
-	if (!fullScan)
+	SET_LOCKTAG_RELATION(tag,
+						 InvalidOid,
+						 GpSegmentConfigRelationId);
+	lockHeldByMe = CheckRelationLockedByMe(&tag, AccessExclusiveLock, true);
+
+	if (!fullScan || lockHeldByMe)
 	{
 		return FTS_STATUS_ISALIVE(failedDBInfo->dbid, ftsProbeInfo->fts_status);
 	}

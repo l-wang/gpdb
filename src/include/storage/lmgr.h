@@ -35,6 +35,7 @@ extern LockAcquireResult LockRelationNoWait(Relation relation, LOCKMODE lockmode
 
 extern bool ConditionalLockRelation(Relation relation, LOCKMODE lockmode);
 extern void UnlockRelation(Relation relation, LOCKMODE lockmode);
+extern bool CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger);
 
 extern void LockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode);
 extern void UnlockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode);

@@ -155,6 +155,8 @@ typedef uint16 LOCKMETHODID;
 #define AccessExclusiveLock		8		/* ALTER TABLE, DROP TABLE, VACUUM
 										 * FULL, and unqualified LOCK TABLE */
 
+#define MaxLockMode				8
+
 /*
  * Map from lock methods to lock table data structures.
  */
@@ -552,6 +554,7 @@ extern void LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks);
 // TODO why are we missing extern void LockReleaseSession(LOCKMETHODID lockmethodid); ?
 extern void LockReleaseCurrentOwner(LOCALLOCK **locallocks, int nlocks);
 extern void LockReassignCurrentOwner(LOCALLOCK **locallocks, int nlocks);
+extern bool LockHeldByMe(const LOCKTAG *locktag, LOCKMODE lockmode);
 extern VirtualTransactionId *GetLockConflicts(const LOCKTAG *locktag,
 				 LOCKMODE lockmode);
 extern void AtPrepare_Locks(void);

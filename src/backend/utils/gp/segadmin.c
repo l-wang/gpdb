@@ -864,7 +864,7 @@ gp_add_segment_mirror(PG_FUNCTION_ARGS)
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_add_segment_mirror");
 
 	/* avoid races */
-	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
+	rel = heap_open(GpSegmentConfigRelationId, ExclusiveLock);
 
 	pridbid = contentid_get_dbid(contentid, SEGMENT_ROLE_PRIMARY, false /* false == current, not preferred, role */);
 	if (!pridbid)
@@ -923,7 +923,7 @@ gp_remove_segment_mirror(PG_FUNCTION_ARGS)
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_remove_segment_mirror");
 
 	/* avoid races */
-	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
+	rel = heap_open(GpSegmentConfigRelationId, ExclusiveLock);
 
 	pridbid = contentid_get_dbid(contentid, SEGMENT_ROLE_PRIMARY, false /* false == current, not preferred, role */);
 

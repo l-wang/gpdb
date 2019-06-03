@@ -127,7 +127,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	component_databases->entry_db_info =
 		(CdbComponentDatabaseInfo *) palloc0(sizeof(CdbComponentDatabaseInfo) * entry_array_size);
 
-	gp_seg_config_rel = heap_open(GpSegmentConfigRelationId, AccessShareLock);
+	gp_seg_config_rel = heap_open(GpSegmentConfigRelationId, RowShareLock);
 
 	gp_seg_config_scan = heap_beginscan(gp_seg_config_rel, SnapshotNow, 0, NULL);
 
@@ -287,7 +287,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	 * all the relations we opened.
 	 */
 	heap_endscan(gp_seg_config_scan);
-	heap_close(gp_seg_config_rel, AccessShareLock);
+	heap_close(gp_seg_config_rel, NoLock);
 
 	/*
 	 * Validate that there exists at least one entry and one segment
