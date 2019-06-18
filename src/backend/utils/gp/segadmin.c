@@ -863,8 +863,17 @@ gp_add_segment_mirror(PG_FUNCTION_ARGS)
 
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_add_segment_mirror");
 
-	/* avoid races */
-	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
+	/*
+	 * avoid races so that no one else updates gp_segment_configuration before
+	 * we update the table. Use ExclusiveLock to allow FTS probe to proceed in
+	 * case of failure of timeout when polling results of
+	 * add_segment_persistent_entries() from QEs. Note that FTS acquires a
+	 * AccessShareLock when reading the gp_segment_configuration table, and
+	 * upgrade the lock to RowExclusiveLock if it decides to modify it. So
+	 * there exists an edge case that if any other segment failed during the
+	 * FTS probe requested by us, deadlock will happen.
+	 */
+	rel = heap_open(GpSegmentConfigRelationId, ExclusiveLock);
 
 	pridbid = contentid_get_dbid(contentid, SEGMENT_ROLE_PRIMARY, false /* false == current, not preferred, role */);
 	if (!pridbid)
@@ -922,8 +931,17 @@ gp_remove_segment_mirror(PG_FUNCTION_ARGS)
 
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_remove_segment_mirror");
 
-	/* avoid races */
-	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
+	/*
+	 * avoid races so that no one else updates gp_segment_configuration before
+	 * we update the table. Use ExclusiveLock to allow FTS probe to proceed in
+	 * case of failure of timeout when polling results of
+	 * add_segment_persistent_entries() from QEs. Note that FTS acquires a
+	 * AccessShareLock when reading the gp_segment_configuration table, and
+	 * upgrade the lock to RowExclusiveLock if it decides to modify it. So
+	 * there exists an edge case that if any other segment failed during the
+	 * FTS probe requested by us, deadlock will happen.
+	 */
+	rel = heap_open(GpSegmentConfigRelationId, ExclusiveLock);
 
 	pridbid = contentid_get_dbid(contentid, SEGMENT_ROLE_PRIMARY, false /* false == current, not preferred, role */);
 
