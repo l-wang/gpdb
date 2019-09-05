@@ -952,7 +952,7 @@ ldelete:;
 					 * Already know that we're going to need to do EPQ, so
 					 * fetch tuple directly into the right slot.
 					 */
-					EvalPlanQualBegin(epqstate, estate);
+					EvalPlanQualBegin(epqstate);
 					inputslot = EvalPlanQualSlot(epqstate, resultRelationDesc,
 												 resultRelInfo->ri_RangeTableIndex);
 
@@ -967,8 +967,7 @@ ldelete:;
 					{
 						case TM_Ok:
 							Assert(tmfd.traversed);
-							epqslot = EvalPlanQual(estate,
-												   epqstate,
+							epqslot = EvalPlanQual(epqstate,
 												   resultRelationDesc,
 												   resultRelInfo->ri_RangeTableIndex,
 												   inputslot);
@@ -1530,7 +1529,6 @@ lreplace:;
 					 * Already know that we're going to need to do EPQ, so
 					 * fetch tuple directly into the right slot.
 					 */
-					EvalPlanQualBegin(epqstate, estate);
 					inputslot = EvalPlanQualSlot(epqstate, resultRelationDesc,
 												 resultRelInfo->ri_RangeTableIndex);
 
@@ -1546,8 +1544,7 @@ lreplace:;
 						case TM_Ok:
 							Assert(tmfd.traversed);
 
-							epqslot = EvalPlanQual(estate,
-												   epqstate,
+							epqslot = EvalPlanQual(epqstate,
 												   resultRelationDesc,
 												   resultRelInfo->ri_RangeTableIndex,
 												   inputslot);
@@ -2295,7 +2292,7 @@ ExecModifyTable(PlanState *pstate)
 	 * case it is within a CTE subplan.  Hence this test must be here, not in
 	 * ExecInitModifyTable.)
 	 */
-	if (estate->es_epqTupleSlot != NULL)
+	if (estate->es_epq_active != NULL)
 		elog(ERROR, "ModifyTable should not be called during EvalPlanQual");
 
 	/*

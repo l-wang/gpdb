@@ -3466,8 +3466,7 @@ GetTupleForTrigger(EState *estate,
 				{
 					TupleTableSlot *epqslot;
 
-					epqslot = EvalPlanQual(estate,
-										   epqstate,
+					epqslot = EvalPlanQual(epqstate,
 										   relation,
 										   relinfo->ri_RangeTableIndex,
 										   oldslot);
