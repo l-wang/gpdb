@@ -1477,7 +1477,7 @@ cdbexplain_showExecStats(struct PlanState *planstate, ExplainState *es)
 	 * Executor memory used by this individual node, if it allocates from a
 	 * memory context of its own instead of sharing the per-query context.
 	 */
-	if (es->analyze && ns->execmemused.vcnt > 0)
+	if (es->analyze && ns->execmemused.vcnt > 0 && ns->execmemused.vmax > 0)
 	{
 		if (es->format == EXPLAIN_FORMAT_TEXT)
 		{
