@@ -3626,6 +3626,8 @@ explain select i as a, i as b from qp_misc_jiras.tbl7553_test group by grouping 
  Optimizer: Postgres query optimizer
 (6 rows)
 
+-- GPDB_12_MERGE_FIXME: ORCA generates incorrect results for this query, so
+-- does planner on 6X_STABLE and below.
 select i as a, i as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a)); 
  a | b 
 ---+---
@@ -3651,6 +3653,8 @@ explain select j as a, j as b from qp_misc_jiras.tbl7553_test group by grouping 
  Optimizer: Postgres query optimizer
 (13 rows)
 
+-- GPDB_12_MERGE_FIXME: ORCA generates incorrect results for this query, so
+-- does planner on 6X_STABLE and below.
 select j as a, j as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a)); 
  a | b 
 ---+---

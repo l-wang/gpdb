@@ -1399,10 +1399,14 @@ create table qp_misc_jiras.tbl7553_test (i int, j int);
 insert into qp_misc_jiras.tbl7553_test values(1,2);
 explain select i as a, i as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a));
 
+-- GPDB_12_MERGE_FIXME: ORCA generates incorrect results for this query, so
+-- does planner on 6X_STABLE and below.
 select i as a, i as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a)); 
 
 explain select j as a, j as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a)); 
 
+-- GPDB_12_MERGE_FIXME: ORCA generates incorrect results for this query, so
+-- does planner on 6X_STABLE and below.
 select j as a, j as b from qp_misc_jiras.tbl7553_test group by grouping sets( (a, b), (a)); 
 
 drop table qp_misc_jiras.tbl7553_test;
