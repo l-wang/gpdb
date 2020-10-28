@@ -48,6 +48,4 @@ extern List *TypeNameGetStorageDirective(TypeName *typname);
 extern List *BuildOnConflictExcludedTargetlist(Relation targetrel,
 											   Index exclRelIndex);
 
-extern void fill_extraUpdatedCols(RangeTblEntry *target_rte, TupleDesc tupdesc);
-
 #endif							/* ANALYZE_H */
