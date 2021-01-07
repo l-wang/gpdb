@@ -48,7 +48,9 @@ public:
 							  CTableDescriptor *ptabdesc, ULONG ulOriginOpId,
 							  const CName *pnameAlias,
 							  CColRefArray *pdrgpcrOutput, ULONG scan_id,
-							  CColRef2dArray *pdrgpdrgpcrPart, COrderSpec *pos);
+							  CColRef2dArray *pdrgpdrgpcrPart, COrderSpec *pos,
+							  IMdIdArray *partition_mdids,
+							  ColRefToUlongMapArray *root_col_mapping_per_part);
 
 	// dtor
 	~CPhysicalDynamicIndexScan() override;

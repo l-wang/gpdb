@@ -233,6 +233,9 @@ CMDIndexInfoArray *
 CTranslatorRelcacheToDXL::RetrieveRelIndexInfo(CMemoryPool *mp, Relation rel)
 {
 	GPOS_ASSERT(NULL != rel);
+	return RetrieveRelIndexInfoForNonPartTable(mp, rel);
+
+#if 0
 
 	if (!gpdb::RelIsPartitioned(rel->rd_id))
 	{
@@ -247,7 +250,7 @@ CTranslatorRelcacheToDXL::RetrieveRelIndexInfo(CMemoryPool *mp, Relation rel)
 			GPOS_NEW(mp) CMDIndexInfoArray(mp);
 		return md_index_info_array;
 	}
-#if 0
+
 
 	else if (gpdb::RelPartIsRoot(rel->rd_id))
 	{

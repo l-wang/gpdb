@@ -13,6 +13,7 @@
 
 #include "gpos/base.h"
 #include "gpopt/operators/CLogical.h"
+#include "gpopt/operators/CLogicalDynamicGetBase.h"
 
 namespace gpopt
 {
@@ -62,6 +63,17 @@ protected:
 	IStatistics *PstatsDeriveFilter(CMemoryPool *mp, CExpressionHandle &exprhdl,
 									CExpression *pexprFilter) const;
 
+	// Construct a mapping from each column in root table to an index in each
+	// child partition's table descr by matching column names$
+	static ColRefToUlongMapArray *ConstructRootColMappingPerPart(
+		CMemoryPool *mp, CColRefArray *root_cols, IMdIdArray *partition_mdids);
+
+	// FIXME: make these private
+	IMdIdArray *m_partition_mdids = NULL;
+	// Map of Root colref -> col index in child tabledesc
+	// per child partition in m_partition_mdid
+	ColRefToUlongMapArray *m_root_col_mapping_per_part = NULL;
+
 public:
 	// ctors
 	explicit CLogicalDynamicGetBase(CMemoryPool *mp);
@@ -69,10 +81,12 @@ public:
 	CLogicalDynamicGetBase(CMemoryPool *mp, const CName *pnameAlias,
 						   CTableDescriptor *ptabdesc, ULONG scan_id,
 						   CColRefArray *pdrgpcrOutput,
-						   CColRef2dArray *pdrgpdrgpcrPart);
+						   CColRef2dArray *pdrgpdrgpcrPart,
+						   IMdIdArray *partition_mdids);
 
 	CLogicalDynamicGetBase(CMemoryPool *mp, const CName *pnameAlias,
-						   CTableDescriptor *ptabdesc, ULONG scan_id);
+						   CTableDescriptor *ptabdesc, ULONG scan_id,
+						   IMdIdArray *partition_mdids);
 
 	// dtor
 	~CLogicalDynamicGetBase() override;
@@ -157,6 +171,17 @@ public:
 		return m_ptabdesc;
 	}
 
+	IMdIdArray *
+	GetPartitionMdids() const
+	{
+		return m_partition_mdids;
+	}
+
+	ColRefToUlongMapArray *
+	GetRootColMappingPerPart() const
+	{
+		return m_root_col_mapping_per_part;
+	}
 };	// class CLogicalDynamicGetBase
 
 }  // namespace gpopt

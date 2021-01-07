@@ -2809,6 +2809,7 @@ CXformUtils::PexprBuildIndexPlan(
 	CWStringConst *alias = NULL;
 	ULONG ulPartIndex = gpos::ulong_max;
 	CColRef2dArray *pdrgpdrgpcrPart = NULL;
+	IMdIdArray *pPartitionMdids = NULL;
 	BOOL fPartialIndex = pmdrel->IsPartialIndex(pmdindex->MDId());
 
 	if (fPartialIndex)
@@ -2839,6 +2840,7 @@ CXformUtils::PexprBuildIndexPlan(
 		alias = GPOS_NEW(mp)
 			CWStringConst(mp, popDynamicGet->Name().Pstr()->GetBuffer());
 		pdrgpdrgpcrPart = popDynamicGet->PdrgpdrgpcrPart();
+		pPartitionMdids = popDynamicGet->GetPartitionMdids();
 	}
 	else
 	{
@@ -2914,9 +2916,10 @@ CXformUtils::PexprBuildIndexPlan(
 	if (fDynamicGet)
 	{
 		pdrgpdrgpcrPart->AddRef();
-		popLogicalGet = (*pdiopc)(mp, pmdindex, ptabdesc, ulOriginOpId,
-								  GPOS_NEW(mp) CName(mp, CName(alias)),
-								  ulPartIndex, pdrgpcrOutput, pdrgpdrgpcrPart);
+		popLogicalGet =
+			(*pdiopc)(mp, pmdindex, ptabdesc, ulOriginOpId,
+					  GPOS_NEW(mp) CName(mp, CName(alias)), ulPartIndex,
+					  pdrgpcrOutput, pdrgpdrgpcrPart, pPartitionMdids);
 	}
 	else
 	{
@@ -3807,6 +3810,7 @@ CXformUtils::PexprBitmapTableGet(CMemoryPool *mp, CLogical *popGet,
 		// create a bitmap table scan on top
 		CLogical *popBitmapTableGet = NULL;
 
+		// FIXME: revisit mdids
 		if (fDynamicGet)
 		{
 			CLogicalDynamicGet *popDynamicGet =
@@ -3814,7 +3818,7 @@ CXformUtils::PexprBitmapTableGet(CMemoryPool *mp, CLogical *popGet,
 			popDynamicGet->PdrgpdrgpcrPart()->AddRef();
 			popBitmapTableGet = GPOS_NEW(mp) CLogicalDynamicBitmapTableGet(
 				mp, ptabdesc, ulOriginOpId, pname, popDynamicGet->ScanId(),
-				pdrgpcrOutput, popDynamicGet->PdrgpdrgpcrPart());
+				pdrgpcrOutput, popDynamicGet->PdrgpdrgpcrPart(), NULL);
 		}
 		else
 		{
