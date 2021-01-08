@@ -1220,10 +1220,10 @@ CTranslatorExprToDXL::PdxlnDynamicTableScan(
 		dxlnode->AddChild(pdxlnPrL);  // project list
 
 		// construct the filter
-		CDXLNode *filter_dxlnode =
-			PdxlnFilterForChildPart(root_col_mapping, part_colrefs,
-									popDTS->PdrgpcrOutput(), pexprScalarCond);
-		dxlnode->AddChild(filter_dxlnode);
+		CDXLNode *filter_dxlnode = PdxlnFilter(
+			PdxlnCondForChildPart(root_col_mapping, part_colrefs,
+								  popDTS->PdrgpcrOutput(), pexprScalarCond));
+		dxlnode->AddChild(filter_dxlnode);	// filter
 
 		// add to the other scans under the created Append node
 		pdxlnAppend->AddChild(dxlnode);
@@ -1306,8 +1306,141 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 	GPOS_ASSERT(NULL != dxl_properties);
 	GPOS_ASSERT(NULL != prpp);
 
-	// GPDB_12_MERGE_FIXME: Implement support for partitioned indexes
-	std::terminate();
+	CPhysicalDynamicIndexScan *popDIS =
+		CPhysicalDynamicIndexScan::PopConvert(pexprDIS->Pop());
+	// CColRefArray *pdrgpcrOutput = popDIS->PdrgpcrOutput();
+
+	// // translate table descriptor
+	// CDXLTableDescr *table_descr =
+	// 				   MakeDXLTableDescr(popDIS->Ptabdesc(), pdrgpcrOutput, pexprDIS->Prpp());
+
+	//	// create index descriptor
+	//	CIndexDescriptor *pindexdesc = popDIS->Pindexdesc();
+	//	CMDName *pmdnameIndex =
+	//						 GPOS_NEW(m_mp) CMDName(m_mp, pindexdesc->Name().Pstr());
+	//	IMDId *pmdidIndex = pindexdesc->MDId();
+	//	pmdidIndex->AddRef();
+	//
+	//	CDXLIndexDescr *dxl_index_descr =
+	//					   GPOS_NEW(m_mp) CDXLIndexDescr(pmdidIndex, pmdnameIndex);
+
+	// construct projection list
+	CColRefSet *pcrsOutput = prpp->PcrsRequired();
+	CDXLNode *pdxlnPrLAppend = PdxlnProjList(pcrsOutput, colref_array);
+
+	CDXLNode *pdxlnResult = NULL;
+	IMdIdArray *part_mdids = popDIS->GetPartitionMdids();
+
+	pdxlnResult = GPOS_NEW(m_mp)
+		CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLPhysicalAppend(m_mp, false, false));
+	// FIXME: set plan costs
+	pdxlnResult->SetProperties(dxl_properties);
+	pdxlnResult->AddChild(pdxlnPrLAppend);
+	pdxlnResult->AddChild(PdxlnFilter(NULL));
+
+	for (ULONG ul = 0; ul < part_mdids->Size(); ++ul)
+	{
+		IMDId *part_mdid = (*part_mdids)[ul];
+		const IMDRelation *part = m_pmda->RetrieveRel(part_mdid);
+
+		CPhysicalDynamicIndexScan *popDIS =
+			CPhysicalDynamicIndexScan::PopConvert(pexprDIS->Pop());
+
+		// FIXME: ideally MakeTableDescForPart(part, pexprDIS->DeriveTableDescriptor());
+		// should just work, at this point all properties should've been derived, but we
+		// haven't derived the table descriptor.
+		CTableDescriptor *part_tabdesc =
+			MakeTableDescForPart(part, popDIS->Ptabdesc());
+
+		// create new colrefs for every child partition
+		CColRefArray *part_colrefs = GPOS_NEW(m_mp) CColRefArray(m_mp);
+		for (ULONG ul = 0; ul < part_tabdesc->ColumnCount(); ++ul)
+		{
+			const CColumnDescriptor *cd = part_tabdesc->Pcoldesc(ul);
+			CColRef *cr = m_pcf->PcrCreate(cd->RetrieveType(),
+										   cd->TypeModifier(), cd->Name());
+			part_colrefs->Append(cr);
+		}
+
+		CDXLTableDescr *dxl_table_descr =
+			MakeDXLTableDescr(part_tabdesc, part_colrefs, pexprDIS->Prpp());
+		part_tabdesc->Release();
+
+		IMDId *pmdidPartIndex = part->IndexMDidAt(0);
+		pmdidPartIndex->AddRef();
+		// FIXME: this is only to get a name
+		//  create index descriptor
+		CIndexDescriptor *pindexdesc = popDIS->Pindexdesc();
+		CMDName *pmdnameIndex =
+			GPOS_NEW(m_mp) CMDName(m_mp, pindexdesc->Name().Pstr());
+		CDXLIndexDescr *dxl_index_descr =
+			GPOS_NEW(m_mp) CDXLIndexDescr(pmdidPartIndex, pmdnameIndex);
+
+		// Finally create the IndexScan DXL node
+		CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(
+			m_mp, GPOS_NEW(m_mp) CDXLPhysicalIndexScan(
+					  m_mp, dxl_table_descr, dxl_index_descr, EdxlisdForward));
+
+		// FIXME: Computer stats & properties per scan
+		dxl_properties->AddRef();
+		dxlnode->SetProperties(dxl_properties);
+
+		// construct projection list - same as the upper Append node
+		// GPOS_ASSERT(NULL != pexprDIS->Prpp());
+
+		auto root_col_mapping = (*popDIS->GetRootColMappingPerPart())[ul];
+
+		CDXLNode *pdxlnPrL = PdxlnProjListForChildPart(
+			root_col_mapping, part_colrefs, pcrsOutput, colref_array);
+		dxlnode->AddChild(pdxlnPrL);  // project list
+
+		CDXLNode *filter_dxlnode;
+		if (2 == pexprDIS->Arity())
+		{
+			// translate residual predicates into the filter node
+			CExpression *pexprResidualCond = (*pexprDIS)[1];
+
+			if (COperator::EopScalarConst != pexprResidualCond->Pop()->Eopid())
+			{
+				// construct the filter
+				filter_dxlnode = PdxlnFilter(PdxlnCondForChildPart(
+					root_col_mapping, part_colrefs, popDIS->PdrgpcrOutput(),
+					pexprResidualCond));
+			}
+		}
+		else
+		{
+			// construct an empty filter
+			filter_dxlnode = PdxlnFilter(NULL);
+		}
+		dxlnode->AddChild(filter_dxlnode);	// filter
+
+		// TODO: this is probably wrong need to do root->child column mapping
+		// translate index predicates
+		CExpression *pexprCond = (*pexprDIS)[0];
+		CDXLNode *pdxlnIndexCondList = GPOS_NEW(m_mp)
+			CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarIndexCondList(m_mp));
+
+		CExpressionArray *pdrgpexprConds =
+			CPredicateUtils::PdrgpexprConjuncts(m_mp, pexprCond);
+		const ULONG length = pdrgpexprConds->Size();
+		for (ULONG ul = 0; ul < length; ul++)
+		{
+			CExpression *pexprIndexCond = (*pdrgpexprConds)[ul];
+			// construct the condition as a filter
+			CDXLNode *pdxlnIndexCond =
+				PdxlnCondForChildPart(root_col_mapping, part_colrefs,
+									  popDIS->PdrgpcrOutput(), pexprIndexCond);
+			pdxlnIndexCondList->AddChild(pdxlnIndexCond);
+		}
+		pdrgpexprConds->Release();
+		dxlnode->AddChild(pdxlnIndexCondList);
+
+		// add to the other scans under the created Append node
+		pdxlnResult->AddChild(dxlnode);
+	}
+
+	return pdxlnResult;
 }
 
 
@@ -4527,7 +4660,7 @@ CTranslatorExprToDXL::PdxlnPartitionSelector(
 			pexprScalarCond, dxl_properties);
 	}
 
-	// GPDB_12_MERGE_FIXME: Support generating Partition Selector
+	// FIXME: Support generating Partition Selector!
 	GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiExpr2DXLUnsupportedFeature,
 			   GPOS_WSZ_LIT("Partition Selector with filter not supported"));
 }
@@ -7254,17 +7387,7 @@ CTranslatorExprToDXL::GetProperties(const CExpression *pexpr)
 	return dxl_properties;
 }
 
-// Construct a project list for a child partition using:
-//   root_col_mapping - root col to part col mapping
-//   part_colrefs - (new) colrefs of the child partition
-//   reqd_colrefs - required colrefs from the root DTS
-//   colref_array - colrefs requested in explicit order
-//
-// NB: Even though we're passed a "set" of reqd colrefs, there is an implicit
-// order in which the set needs to be iterated. This order is in increasing
-// order of colref ids of the root partition. However, since the order can be
-// different when mapped to child partition cols, they are handled in this
-// method and an empty_set sent to the general PdxlnProjList()
+
 CDXLNode *
 CTranslatorExprToDXL::PdxlnProjListForChildPart(
 	const ColRefToUlongMap *root_col_mapping, const CColRefArray *part_colrefs,
@@ -7272,8 +7395,6 @@ CTranslatorExprToDXL::PdxlnProjListForChildPart(
 {
 	CColRefArray *mapped_colrefs = GPOS_NEW(m_mp) CColRefArray(m_mp);
 	CColRefSet *pcrs = GPOS_NEW(m_mp) CColRefSet(m_mp);
-
-	// project columns in order if explicitly asked
 	if (NULL != colref_array)
 	{
 		for (ULONG i = 0; i < colref_array->Size(); ++i)
@@ -7287,7 +7408,6 @@ CTranslatorExprToDXL::PdxlnProjListForChildPart(
 		}
 	}
 
-	// project other reqd columns
 	CColRefSetIter crsi(*reqd_colrefs);
 	while (crsi.Advance())
 	{
@@ -7318,7 +7438,7 @@ CTranslatorExprToDXL::PdxlnProjListForChildPart(
 // The method first creates a temporary mapping from root colrefs to (new) child
 // partition colref ids, which is used when translating via PdxlnScalar().
 CDXLNode *
-CTranslatorExprToDXL::PdxlnFilterForChildPart(
+CTranslatorExprToDXL::PdxlnCondForChildPart(
 	const ColRefToUlongMap *root_col_mapping, const CColRefArray *part_colrefs,
 	const CColRefArray *root_colrefs, CExpression *pred)
 {
@@ -7347,7 +7467,7 @@ CTranslatorExprToDXL::PdxlnFilterForChildPart(
 	m_phmcrulPartColId->Release();
 	m_phmcrulPartColId = NULL;
 
-	return PdxlnFilter(pdxlnCond);
+	return pdxlnCond;
 }
 
 

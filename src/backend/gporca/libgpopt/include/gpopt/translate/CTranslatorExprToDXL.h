@@ -653,10 +653,10 @@ private:
 		const CColRefArray *colref_array);
 
 	// translate a filter expr on the root for a child partition
-	CDXLNode *PdxlnFilterForChildPart(const ColRefToUlongMap *root_col_mapping,
-									  const CColRefArray *part_colrefs,
-									  const CColRefArray *root_colrefs,
-									  CExpression *pred);
+	CDXLNode *PdxlnCondForChildPart(const ColRefToUlongMap *root_col_mapping,
+									const CColRefArray *part_colrefs,
+									const CColRefArray *root_colrefs,
+									CExpression *pred);
 
 	// translate a project list expression into a DXL proj list node
 	// according to the order specified in the dynamic array
