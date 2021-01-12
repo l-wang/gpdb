@@ -69,6 +69,9 @@ private:
 	// DXL for object
 	const CWStringDynamic *m_dxl_str;
 
+	// Child index oids
+	IMdIdArray *m_child_index_oids;
+
 public:
 	CMDIndexGPDB(const CMDIndexGPDB &) = delete;
 
@@ -78,7 +81,8 @@ public:
 				 IMDId *mdid_item_type, ULongPtrArray *index_key_cols_array,
 				 ULongPtrArray *included_cols_array,
 				 IMdIdArray *mdid_opfamilies_array,
-				 IMDPartConstraint *mdpart_constraint);
+				 IMDPartConstraint *mdpart_constraint,
+				 IMdIdArray *child_index_oids);
 
 	// dtor
 	~CMDIndexGPDB() override;
@@ -133,6 +137,9 @@ public:
 	// at the specified position
 	BOOL IsCompatible(const IMDScalarOp *md_scalar_op,
 					  ULONG key_pos) const override;
+
+	// child index oids
+	IMdIdArray *ChildIndexMdids() const override;
 
 #ifdef GPOS_DEBUG
 	// debug print of the MD index

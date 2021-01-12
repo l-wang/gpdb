@@ -4515,6 +4515,25 @@ relation_is_partitioned(Oid relid)
 		return false;
 }
 
+bool
+index_is_partitioned(Oid relid)
+{
+	HeapTuple   tuple;
+	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for relation %u", relid);
+	Form_pg_class pg_class_tuple = (Form_pg_class) GETSTRUCT(tuple);
+	ReleaseSysCache(tuple);
+	if (pg_class_tuple->relkind == RELKIND_PARTITIONED_INDEX)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 List *
 relation_get_leaf_partitions(Oid oid)
 {

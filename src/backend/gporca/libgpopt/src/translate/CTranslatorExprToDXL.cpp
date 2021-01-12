@@ -1308,35 +1308,31 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 
 	CPhysicalDynamicIndexScan *popDIS =
 		CPhysicalDynamicIndexScan::PopConvert(pexprDIS->Pop());
-	// CColRefArray *pdrgpcrOutput = popDIS->PdrgpcrOutput();
-
-	// // translate table descriptor
-	// CDXLTableDescr *table_descr =
-	// 				   MakeDXLTableDescr(popDIS->Ptabdesc(), pdrgpcrOutput, pexprDIS->Prpp());
-
-	//	// create index descriptor
-	//	CIndexDescriptor *pindexdesc = popDIS->Pindexdesc();
-	//	CMDName *pmdnameIndex =
-	//						 GPOS_NEW(m_mp) CMDName(m_mp, pindexdesc->Name().Pstr());
-	//	IMDId *pmdidIndex = pindexdesc->MDId();
-	//	pmdidIndex->AddRef();
-	//
-	//	CDXLIndexDescr *dxl_index_descr =
-	//					   GPOS_NEW(m_mp) CDXLIndexDescr(pmdidIndex, pmdnameIndex);
 
 	// construct projection list
 	CColRefSet *pcrsOutput = prpp->PcrsRequired();
 	CDXLNode *pdxlnPrLAppend = PdxlnProjList(pcrsOutput, colref_array);
 
-	CDXLNode *pdxlnResult = NULL;
 	IMdIdArray *part_mdids = popDIS->GetPartitionMdids();
 
-	pdxlnResult = GPOS_NEW(m_mp)
+	CDXLNode *pdxlnResult = GPOS_NEW(m_mp)
 		CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLPhysicalAppend(m_mp, false, false));
 	// FIXME: set plan costs
 	pdxlnResult->SetProperties(dxl_properties);
 	pdxlnResult->AddChild(pdxlnPrLAppend);
+	// FIXME: why do we need an empty filter?
 	pdxlnResult->AddChild(PdxlnFilter(NULL));
+
+	// construct set of child indexes from parent list of child indexes
+	IMDId *pmdidIndex = popDIS->Pindexdesc()->MDId();
+	const IMDIndex *md_index = m_pmda->RetrieveIndex(pmdidIndex);
+	IMdIdArray *child_indexes = md_index->ChildIndexMdids();
+
+	MdidHashSet *child_index_mdids_set = GPOS_NEW(m_mp) MdidHashSet(m_mp);
+	for (ULONG ul = 0; ul < child_indexes->Size(); ul++)
+	{
+		child_index_mdids_set->Insert((*child_indexes)[ul]);
+	}
 
 	for (ULONG ul = 0; ul < part_mdids->Size(); ++ul)
 	{
@@ -1366,15 +1362,26 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 			MakeDXLTableDescr(part_tabdesc, part_colrefs, pexprDIS->Prpp());
 		part_tabdesc->Release();
 
-		IMDId *pmdidPartIndex = part->IndexMDidAt(0);
-		pmdidPartIndex->AddRef();
-		// FIXME: this is only to get a name
-		//  create index descriptor
+		// iterate over each index in the child to find the matching index
+		IMDId *found_index = NULL;
+		for (ULONG j = 0; j < part->IndexCount(); ++j)
+		{
+			IMDId *pmdidPartIndex = part->IndexMDidAt(j);
+			if (child_index_mdids_set->Contains(pmdidPartIndex))
+			{
+				found_index = pmdidPartIndex;
+				break;
+			}
+		}
+		GPOS_ASSERT(NULL != found_index);
+		found_index->AddRef();
+
+		//  create index descriptor (this name is the parent name, but isn't displayed in the plan)
 		CIndexDescriptor *pindexdesc = popDIS->Pindexdesc();
 		CMDName *pmdnameIndex =
 			GPOS_NEW(m_mp) CMDName(m_mp, pindexdesc->Name().Pstr());
 		CDXLIndexDescr *dxl_index_descr =
-			GPOS_NEW(m_mp) CDXLIndexDescr(pmdidPartIndex, pmdnameIndex);
+			GPOS_NEW(m_mp) CDXLIndexDescr(found_index, pmdnameIndex);
 
 		// Finally create the IndexScan DXL node
 		CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(
@@ -1385,9 +1392,7 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 		dxl_properties->AddRef();
 		dxlnode->SetProperties(dxl_properties);
 
-		// construct projection list - same as the upper Append node
-		// GPOS_ASSERT(NULL != pexprDIS->Prpp());
-
+		// construct projection list
 		auto root_col_mapping = (*popDIS->GetRootColMappingPerPart())[ul];
 
 		CDXLNode *pdxlnPrL = PdxlnProjListForChildPart(
@@ -1407,6 +1412,10 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 					root_col_mapping, part_colrefs, popDIS->PdrgpcrOutput(),
 					pexprResidualCond));
 			}
+			else
+			{
+				filter_dxlnode = PdxlnFilter(NULL);
+			}
 		}
 		else
 		{
@@ -1415,7 +1424,6 @@ CTranslatorExprToDXL::PdxlnDynamicIndexScan(
 		}
 		dxlnode->AddChild(filter_dxlnode);	// filter
 
-		// TODO: this is probably wrong need to do root->child column mapping
 		// translate index predicates
 		CExpression *pexprCond = (*pexprDIS)[0];
 		CDXLNode *pdxlnIndexCondList = GPOS_NEW(m_mp)

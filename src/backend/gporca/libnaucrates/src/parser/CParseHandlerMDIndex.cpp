@@ -154,13 +154,22 @@ CParseHandlerMDIndex::StartElement(const XMLCh *const,	// element_uri,
 		m_parse_handler_mgr->GetDXLMemoryManager(), xmlszIndexIncludedCols,
 		EdxltokenIndexIncludedCols, EdxltokenIndex);
 
+	// parse handler for child indexes list
+	CParseHandlerBase *child_indexes_parse_handler =
+		CParseHandlerFactory::GetParseHandler(
+			m_mp, CDXLTokens::XmlstrToken(EdxltokenMetadataIdList),
+			m_parse_handler_mgr, this);
+	m_parse_handler_mgr->ActivateParseHandler(child_indexes_parse_handler);
+
 	// parse handler for operator class list
 	CParseHandlerBase *opfamilies_list_parse_handler =
 		CParseHandlerFactory::GetParseHandler(
 			m_mp, CDXLTokens::XmlstrToken(EdxltokenMetadataIdList),
 			m_parse_handler_mgr, this);
-	this->Append(opfamilies_list_parse_handler);
 	m_parse_handler_mgr->ActivateParseHandler(opfamilies_list_parse_handler);
+
+	this->Append(opfamilies_list_parse_handler);
+	this->Append(child_indexes_parse_handler);
 }
 
 //---------------------------------------------------------------------------
@@ -207,10 +216,15 @@ CParseHandlerMDIndex::EndElement(const XMLCh *const,  // element_uri,
 	IMdIdArray *mdid_opfamilies_array = pphMdidOpfamilies->GetMdIdArray();
 	mdid_opfamilies_array->AddRef();
 
+	CParseHandlerMetadataIdList *pphMdidChildIndexes =
+		dynamic_cast<CParseHandlerMetadataIdList *>((*this)[1]);
+	IMdIdArray *mdid_child_index_array = pphMdidChildIndexes->GetMdIdArray();
+	mdid_child_index_array->AddRef();
+
 	m_imd_obj = GPOS_NEW(m_mp) CMDIndexGPDB(
 		m_mp, m_mdid, m_mdname, m_clustered, m_index_type, m_mdid_item_type,
 		m_index_key_cols_array, m_included_cols_array, mdid_opfamilies_array,
-		m_part_constraint);
+		m_part_constraint, mdid_child_index_array);
 
 	// deactivate handler
 	m_parse_handler_mgr->DeactivateHandler();
