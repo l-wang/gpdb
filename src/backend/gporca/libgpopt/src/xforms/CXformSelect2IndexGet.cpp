@@ -116,9 +116,7 @@ CXformSelect2IndexGet::Transform(CXformContext *pxfctxt, CXformResult *pxfres,
 		const IMDIndex *pmdindex = md_accessor->RetrieveIndex(pmdidIndex);
 		CExpression *pexprIndexGet = CXformUtils::PexprLogicalIndexGet(
 			mp, md_accessor, pexprRelational, pexpr->Pop()->UlOpId(), pdrgpexpr,
-			pcrsReqd, pcrsScalarExpr, NULL /*outer_refs*/, pmdindex, pmdrel,
-			NULL /*ppartcnstrIndex*/
-		);
+			pcrsReqd, pcrsScalarExpr, NULL /*outer_refs*/, pmdindex, pmdrel);
 		if (NULL != pexprIndexGet)
 		{
 			pxfres->Add(pexprIndexGet);

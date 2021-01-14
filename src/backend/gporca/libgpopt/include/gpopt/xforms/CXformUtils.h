@@ -216,9 +216,9 @@ private:
 		ULONG ulOriginOpId, CExpressionArray *pdrgpexprConds,
 		CColRefSet *pcrsReqd, CColRefSet *pcrsScalarExpr,
 		CColRefSet *outer_refs, const IMDIndex *pmdindex,
-		const IMDRelation *pmdrel, CPartConstraint *ppcForPartialIndexes,
-		IMDIndex::EmdindexType emdindtype, PDynamicIndexOpConstructor pdiopc,
-		PStaticIndexOpConstructor psiopc, PRewrittenIndexPath prip);
+		const IMDRelation *pmdrel, IMDIndex::EmdindexType emdindtype,
+		PDynamicIndexOpConstructor pdiopc, PStaticIndexOpConstructor psiopc,
+		PRewrittenIndexPath prip);
 
 	// create a dynamic operator for a btree index plan
 	static CLogical *
@@ -528,14 +528,13 @@ public:
 						 CExpression *pexprGet, ULONG ulOriginOpId,
 						 CExpressionArray *pdrgpexprConds, CColRefSet *pcrsReqd,
 						 CColRefSet *pcrsScalarExpr, CColRefSet *outer_refs,
-						 const IMDIndex *pmdindex, const IMDRelation *pmdrel,
-						 CPartConstraint *ppcartcnstrIndex)
+						 const IMDIndex *pmdindex, const IMDRelation *pmdrel)
 	{
 		return PexprBuildIndexPlan(
 			mp, md_accessor, pexprGet, ulOriginOpId, pdrgpexprConds, pcrsReqd,
-			pcrsScalarExpr, outer_refs, pmdindex, pmdrel, ppcartcnstrIndex,
-			IMDIndex::EmdindBtree, PopDynamicBtreeIndexOpConstructor,
-			PopStaticBtreeIndexOpConstructor, PexprRewrittenBtreeIndexPath);
+			pcrsScalarExpr, outer_refs, pmdindex, pmdrel, IMDIndex::EmdindBtree,
+			PopDynamicBtreeIndexOpConstructor, PopStaticBtreeIndexOpConstructor,
+			PexprRewrittenBtreeIndexPath);
 	}
 
 	// helper for creating bitmap bool op expressions
