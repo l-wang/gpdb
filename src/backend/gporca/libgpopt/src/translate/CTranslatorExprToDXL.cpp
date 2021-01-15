@@ -1281,9 +1281,115 @@ CTranslatorExprToDXL::PdxlnDynamicBitmapTableScan(
 	CDXLPhysicalProperties *dxl_properties GPOS_UNUSED)
 {
 	GPOS_ASSERT(NULL != pexprScan);
+	CPhysicalDynamicBitmapTableScan *pop =
+		CPhysicalDynamicBitmapTableScan::PopConvert(pexprScan->Pop());
 
-	// GPDB_12_MERGE_FIXME: Implement support for partitioned indexes
-	std::terminate();
+	// construct projection list
+	CColRefSet *pcrsOutput = pexprScan->Prpp()->PcrsRequired();
+	CDXLNode *pdxlnPrLAppend = PdxlnProjList(pcrsOutput, colref_array);
+
+	CDXLNode *pdxlnResult = GPOS_NEW(m_mp)
+		CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLPhysicalAppend(m_mp, false, false));
+	// FIXME: set plan costs
+	pdxlnResult->SetProperties(dxl_properties);
+	pdxlnResult->AddChild(pdxlnPrLAppend);
+	// FIXME: why do we need an empty filter?
+	pdxlnResult->AddChild(PdxlnFilter(NULL));
+
+	IMdIdArray *part_mdids = pop->GetPartitionMdids();
+	for (ULONG ul = 0; ul < part_mdids->Size(); ++ul)
+	{
+		IMDId *part_mdid = (*part_mdids)[ul];
+		const IMDRelation *part = m_pmda->RetrieveRel(part_mdid);
+
+		// FIXME: what's the deal with direct dispatch?
+		// COptCtxt::PoctxtFromTLS()->AddDirectDispatchableFilterCandidate(pexprScan);
+
+		// translate table descriptor
+		CTableDescriptor *part_tabdesc =
+			MakeTableDescForPart(part, pexprScan->DeriveTableDescriptor());
+
+		// Create new colrefs for the child partition. The ColRefs from root
+		// DTS, which may be used in any parent node, can no longer be exported
+		// by a child of the Append node. Thus it is exported by the Append
+		// node itself, and new colrefs are created here.
+		CColRefArray *part_colrefs = GPOS_NEW(m_mp) CColRefArray(m_mp);
+		for (ULONG ul = 0; ul < part_tabdesc->ColumnCount(); ++ul)
+		{
+			const CColumnDescriptor *cd = part_tabdesc->Pcoldesc(ul);
+			CColRef *cr = m_pcf->PcrCreate(cd->RetrieveType(),
+										   cd->TypeModifier(), cd->Name());
+			part_colrefs->Append(cr);
+		}
+
+		CDXLTableDescr *dxl_table_descr =
+			MakeDXLTableDescr(part_tabdesc, part_colrefs, pexprScan->Prpp());
+		part_tabdesc->Release();
+
+		CDXLNode *pdxlnBitmapTableScan = GPOS_NEW(m_mp) CDXLNode(
+			m_mp,
+			GPOS_NEW(m_mp) CDXLPhysicalBitmapTableScan(m_mp, dxl_table_descr));
+
+		// set properties
+		// construct plan costs, if there are not passed as a parameter
+		if (NULL == dxl_properties)
+		{
+			dxl_properties = GetProperties(pexprScan);
+		}
+		pdxlnBitmapTableScan->SetProperties(dxl_properties);
+
+		// build projection list
+		auto root_col_mapping = (*pop->GetRootColMappingPerPart())[ul];
+
+		// translate scalar predicate into DXL filter only if it is not redundant
+		CExpression *pexprRecheckCond = (*pexprScan)[0];
+		CDXLNode *pdxlnCond = NULL;
+		if (NULL != pexprScalar && !CUtils::FScalarConstTrue(pexprScalar) &&
+			!pexprScalar->Matches(pexprRecheckCond))
+		{
+			pdxlnCond =
+				PdxlnCondForChildPart(root_col_mapping, part_colrefs,
+									  pop->PdrgpcrOutput(), pexprScalar);
+		}
+
+		CDXLNode *filter_dxlnode = PdxlnFilter(pdxlnCond);
+
+		CDXLNode *pdxlnRecheckCond =
+			PdxlnCondForChildPart(root_col_mapping, part_colrefs,
+								  pop->PdrgpcrOutput(), pexprRecheckCond);
+		CDXLNode *pdxlnRecheckCondFilter = GPOS_NEW(m_mp)
+			CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarRecheckCondFilter(m_mp),
+					 pdxlnRecheckCond);
+
+		AddBitmapFilterColumns(m_mp, pop, pexprRecheckCond, pexprScalar,
+							   pcrsOutput);
+
+		CDXLNode *proj_list_dxlnode = PdxlnProjListForChildPart(
+			root_col_mapping, part_colrefs, pcrsOutput, colref_array);
+
+		// translate bitmap access path
+		CExpression *pexprBitmapIndexPath = (*pexprScan)[1];
+
+		CDXLNode *pdxlnBitmapIndexPath = PdxlnBitmapIndexPathForChildPart(
+			root_col_mapping, part_colrefs, pop->PdrgpcrOutput(), part,
+			pexprBitmapIndexPath);
+
+		pdxlnBitmapTableScan->AddChild(proj_list_dxlnode);
+		pdxlnBitmapTableScan->AddChild(filter_dxlnode);
+		pdxlnBitmapTableScan->AddChild(pdxlnRecheckCondFilter);
+		pdxlnBitmapTableScan->AddChild(pdxlnBitmapIndexPath);
+#ifdef GPOS_DEBUG
+		pdxlnBitmapTableScan->GetOperator()->AssertValid(
+			pdxlnBitmapTableScan, false /*validate_children*/);
+#endif
+
+		CDistributionSpec *pds = pexprScan->GetDrvdPropPlan()->Pds();
+		pds->AddRef();
+		pdrgpdsBaseTables->Append(pds);
+
+		pdxlnResult->AddChild(pdxlnBitmapTableScan);
+	}
+	return pdxlnResult;
 }
 
 //---------------------------------------------------------------------------
@@ -7476,6 +7582,132 @@ CTranslatorExprToDXL::PdxlnCondForChildPart(
 	m_phmcrulPartColId = NULL;
 
 	return pdxlnCond;
+}
+
+CDXLNode *
+CTranslatorExprToDXL::PdxlnBitmapIndexPathForChildPart(
+	const ColRefToUlongMap *root_col_mapping, const CColRefArray *part_colrefs,
+	const CColRefArray *root_colrefs, const IMDRelation *part,
+	CExpression *pexprBitmapIndexPath)
+{
+	switch (pexprBitmapIndexPath->Pop()->Eopid())
+	{
+		case COperator::EopScalarBitmapIndexProbe:
+			return PdxlnBitmapIndexProbeForChildPart(
+				root_col_mapping, part_colrefs, root_colrefs, part,
+				pexprBitmapIndexPath);
+		case COperator::EopScalarBitmapBoolOp:
+		{
+			GPOS_ASSERT(NULL != pexprBitmapIndexPath);
+			GPOS_ASSERT(2 == pexprBitmapIndexPath->Arity());
+
+			CScalarBitmapBoolOp *popBitmapBoolOp =
+				CScalarBitmapBoolOp::PopConvert(pexprBitmapIndexPath->Pop());
+			CExpression *pexprLeft = (*pexprBitmapIndexPath)[0];
+			CExpression *pexprRight = (*pexprBitmapIndexPath)[1];
+
+			CDXLNode *dxlnode_left = PdxlnBitmapIndexPathForChildPart(
+				root_col_mapping, part_colrefs, root_colrefs, part, pexprLeft);
+			CDXLNode *dxlnode_right = PdxlnBitmapIndexPathForChildPart(
+				root_col_mapping, part_colrefs, root_colrefs, part, pexprRight);
+
+			IMDId *mdid_type = popBitmapBoolOp->MdidType();
+			mdid_type->AddRef();
+
+			CDXLScalarBitmapBoolOp::EdxlBitmapBoolOp edxlbitmapop =
+				CDXLScalarBitmapBoolOp::EdxlbitmapAnd;
+
+			if (CScalarBitmapBoolOp::EbitmapboolOr ==
+				popBitmapBoolOp->Ebitmapboolop())
+			{
+				edxlbitmapop = CDXLScalarBitmapBoolOp::EdxlbitmapOr;
+			}
+
+			return GPOS_NEW(m_mp) CDXLNode(
+				m_mp,
+				GPOS_NEW(m_mp)
+					CDXLScalarBitmapBoolOp(m_mp, mdid_type, edxlbitmapop),
+				dxlnode_left, dxlnode_right);
+		}
+		default:
+			GPOS_RAISE(gpopt::ExmaGPOPT, gpopt::ExmiUnsupportedOp,
+					   pexprBitmapIndexPath->Pop()->SzId());
+	}
+}
+
+// FIXME: generalize duplicate code with PdxlnBitmapIndexProbe()
+CDXLNode *
+CTranslatorExprToDXL::PdxlnBitmapIndexProbeForChildPart(
+	const ColRefToUlongMap *root_col_mapping, const CColRefArray *part_colrefs,
+	const CColRefArray *root_colrefs, const IMDRelation *part,
+	CExpression *pexprBitmapIndexProbe)
+{
+	GPOS_ASSERT(NULL != pexprBitmapIndexProbe);
+	CScalarBitmapIndexProbe *pop =
+		CScalarBitmapIndexProbe::PopConvert(pexprBitmapIndexProbe->Pop());
+
+	// create index descriptor
+	CIndexDescriptor *pindexdesc = pop->Pindexdesc();
+	IMDId *pmdidIndex = pindexdesc->MDId();
+
+	// FIXME: generalize duplicate code with PdxlnDynamicIndexScan()
+	// construct set of child indexes from parent list of child indexes
+	const IMDIndex *md_index = m_pmda->RetrieveIndex(pmdidIndex);
+	IMdIdArray *child_indexes = md_index->ChildIndexMdids();
+
+	MdidHashSet *child_index_mdids_set = GPOS_NEW(m_mp) MdidHashSet(m_mp);
+	for (ULONG ul = 0; ul < child_indexes->Size(); ul++)
+	{
+		child_index_mdids_set->Insert((*child_indexes)[ul]);
+	}
+
+	// iterate over each index in the child to find the matching index
+	IMDId *found_index = NULL;
+	for (ULONG j = 0; j < part->IndexCount(); ++j)
+	{
+		IMDId *pmdidPartIndex = part->IndexMDidAt(j);
+		if (child_index_mdids_set->Contains(pmdidPartIndex))
+		{
+			found_index = pmdidPartIndex;
+			break;
+		}
+	}
+	GPOS_ASSERT(NULL != found_index);
+	found_index->AddRef();
+
+	// create index descriptor (this name is the parent name, but isn't displayed in the plan)
+	CMDName *pmdnameIndex =
+		GPOS_NEW(m_mp) CMDName(m_mp, pindexdesc->Name().Pstr());
+	CDXLIndexDescr *dxl_index_descr =
+		GPOS_NEW(m_mp) CDXLIndexDescr(found_index, pmdnameIndex);
+
+	CDXLScalarBitmapIndexProbe *dxl_op =
+		GPOS_NEW(m_mp) CDXLScalarBitmapIndexProbe(m_mp, dxl_index_descr);
+	CDXLNode *pdxlnBitmapIndexProbe = GPOS_NEW(m_mp) CDXLNode(m_mp, dxl_op);
+
+	// translate index predicates
+	CExpression *pexprCond = (*pexprBitmapIndexProbe)[0];
+	CDXLNode *pdxlnIndexCondList = GPOS_NEW(m_mp)
+		CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarIndexCondList(m_mp));
+	CExpressionArray *pdrgpexprConds =
+		CPredicateUtils::PdrgpexprConjuncts(m_mp, pexprCond);
+	const ULONG length = pdrgpexprConds->Size();
+	for (ULONG ul = 0; ul < length; ul++)
+	{
+		CExpression *pexprIndexCond = (*pdrgpexprConds)[ul];
+		CDXLNode *pdxlnIndexCond = PdxlnCondForChildPart(
+			root_col_mapping, part_colrefs, root_colrefs, pexprIndexCond);
+		pdxlnIndexCondList->AddChild(pdxlnIndexCond);
+	}
+	pdrgpexprConds->Release();
+	pdxlnBitmapIndexProbe->AddChild(pdxlnIndexCondList);
+
+#ifdef GPOS_DEBUG
+	pdxlnBitmapIndexProbe->GetOperator()->AssertValid(
+		pdxlnBitmapIndexProbe, false /*validate_children*/);
+#endif
+
+	return pdxlnBitmapIndexProbe;
 }
 
 
