@@ -1231,6 +1231,9 @@ CTranslatorExprToDXL::PdxlnDynamicTableScan(
 
 		// add to the other scans under the created Append node
 		pdxlnAppend->AddChild(dxlnode);
+
+		// cleanup
+		part_colrefs->Release();
 	}
 
 	CDistributionSpec *pds = pexprDTS->GetDrvdPropPlan()->Pds();
@@ -7305,6 +7308,8 @@ CTranslatorExprToDXL::PdxlnProjListForChildPart(
 	CColRefSet *empty_set = GPOS_NEW(m_mp) CColRefSet(m_mp);
 	CDXLNode *pdxlnPrL = PdxlnProjList(empty_set, mapped_colrefs);
 	empty_set->Release();
+	mapped_colrefs->Release();
+	pcrs->Release();
 	return pdxlnPrL;
 }
 
