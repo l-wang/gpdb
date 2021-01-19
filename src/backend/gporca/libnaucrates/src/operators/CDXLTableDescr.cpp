@@ -19,6 +19,7 @@ using namespace gpos;
 using namespace gpdxl;
 
 #define GPDXL_DEFAULT_USERID 0
+#define GPDXL_INVALID_LOCKMODE -1
 
 //---------------------------------------------------------------------------
 //	@function:
@@ -210,8 +211,11 @@ CDXLTableDescr::SerializeToDXL(CXMLSerializer *xml_serializer) const
 			m_execute_as_user_id);
 	}
 
-	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenLockMode),
-								 LockMode());
+	if (GPDXL_INVALID_LOCKMODE != LockMode())
+	{
+		xml_serializer->AddAttribute(
+			CDXLTokens::GetDXLTokenStr(EdxltokenLockMode), LockMode());
+	}
 
 	// serialize columns
 	xml_serializer->OpenElement(
