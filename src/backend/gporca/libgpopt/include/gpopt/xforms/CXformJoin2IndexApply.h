@@ -84,20 +84,6 @@ protected:
 		CTableDescriptor *PtabdescInner, CLogicalDynamicGet *popDynamicGet,
 		CXformResult *pxfres, gpmd::IMDIndex::EmdindexType emdtype) const;
 
-	// return the new instance of logical join operator
-	// being targeted in the current xform rule, caller
-	// takes the ownership and responsibility to release
-	// the instance.
-	virtual CLogicalJoin *PopLogicalJoin(CMemoryPool *mp) const = 0;
-
-	// return the new instance of logical apply operator
-	// that it is trying to transform to in the current
-	// xform rule, caller takes the ownership and
-	// responsibility to release the instance.
-	virtual CLogicalApply *PopLogicalApply(CMemoryPool *mp,
-										   CColRefArray *pdrgpcrOuterRefs,
-										   CExpression *origJoinPred) const = 0;
-
 public:
 	CXformJoin2IndexApply(const CXformJoin2IndexApply &) = delete;
 
