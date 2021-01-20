@@ -98,13 +98,6 @@ public:
 		return m_root_col_mapping_per_part;
 	}
 
-	void
-	SetPartitionMdids(IMdIdArray *partition_mdids)
-	{
-		CRefCount::SafeRelease(m_partition_mdids);
-		m_partition_mdids = partition_mdids;
-	}
-
 	// return a copy of the operator with remapped columns
 	COperator *PopCopyWithRemappedColumns(CMemoryPool *mp,
 										  UlongToColRefMap *colref_mapping,
