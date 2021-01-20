@@ -750,8 +750,6 @@ MemoryContext GPDBAllocSetContextCreate();
 
 void GPDBMemoryContextDelete(MemoryContext context);
 
-List *GetRelChildPartitions(Oid reloid);
-
 void GPDBLockRelationOid(Oid reloid, int lockmode);
 
 }  //namespace gpdb

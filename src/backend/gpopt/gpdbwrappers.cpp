@@ -2825,34 +2825,6 @@ gpdb::RelIsPartitioned(Oid relid)
 	GP_WRAP_END;
 }
 
-List *
-gpdb::GetRelChildPartitions(Oid reloid)
-{
-	List *partoids = NIL;
-	GP_WRAP_START;
-	{
-		if (InvalidOid == reloid)
-		{
-			return NIL;
-		}
-		RelationWrapper rel = gpdb::GetRelation(reloid);
-
-
-		if (NULL == rel->rd_partdesc)
-		{
-			return NIL;
-		}
-
-		for (int i = 0; i < rel->rd_partdesc->nparts; i++)
-		{
-			partoids = lappend_oid(partoids, rel->rd_partdesc->oids[i]);
-		}
-	}
-	GP_WRAP_END;
-
-	return partoids;
-}
-
 void
 gpdb::GPDBLockRelationOid(Oid reloid, LOCKMODE lockmode)
 {

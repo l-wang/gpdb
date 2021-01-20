@@ -571,7 +571,13 @@ CTranslatorRelcacheToDXL::RetrieveRel(CMemoryPool *mp, CMDAccessor *md_accessor,
 		// FIXME_GPDB_12_MERGE_FIXME: misestimate (most likely underestimate) the number of leaf partitions
 		// ORCA doesn't really care, except to determine whether to sort before inserting
 		num_leaf_partitions = rel->rd_partdesc->nparts;
-		partition_oids = RetrieveRelPartitions(mp, oid);
+		partition_oids = GPOS_NEW(mp) IMdIdArray(mp);
+
+		for (int i = 0; i < rel->rd_partdesc->nparts; ++i)
+		{
+			Oid oid = rel->rd_partdesc->oids[i];
+			partition_oids->Append(GPOS_NEW (mp) CMDIdGPDB(oid));
+		}
 	}
 
 	// get key sets
@@ -3370,19 +3376,4 @@ CTranslatorRelcacheToDXL::RetrieveScOpOpFamilies(CMemoryPool *mp,
 	return input_col_mdids;
 }
 
-IMdIdArray *
-CTranslatorRelcacheToDXL::RetrieveRelPartitions(CMemoryPool *mp, OID rel_oid)
-{
-	IMdIdArray *partition_oids = GPOS_NEW(mp) IMdIdArray(mp);
-
-	List *partition_oid_list = gpdb::GetRelChildPartitions(rel_oid);
-	ListCell *lc;
-	foreach (lc, partition_oid_list)
-	{
-		OID oid = lfirst_oid(lc);
-		partition_oids->Append(GPOS_NEW(mp) CMDIdGPDB(oid));
-	}
-
-	return partition_oids;
-}
 // EOF
