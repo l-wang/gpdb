@@ -1192,9 +1192,9 @@ CTranslatorExprToDXL::PdxlnDynamicTableScan(
 		// by a child of the Append node. Thus it is exported by the Append
 		// node itself, and new colrefs are created here.
 		CColRefArray *part_colrefs = GPOS_NEW(m_mp) CColRefArray(m_mp);
-		for (ULONG ul = 0; ul < part_tabdesc->ColumnCount(); ++ul)
+		for (ULONG ul_col = 0; ul_col < part_tabdesc->ColumnCount(); ++ul_col)
 		{
-			const CColumnDescriptor *cd = part_tabdesc->Pcoldesc(ul);
+			const CColumnDescriptor *cd = part_tabdesc->Pcoldesc(ul_col);
 			CColRef *cr = m_pcf->PcrCreate(cd->RetrieveType(),
 										   cd->TypeModifier(), cd->Name());
 			part_colrefs->Append(cr);
@@ -1207,16 +1207,12 @@ CTranslatorExprToDXL::PdxlnDynamicTableScan(
 		CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(
 			m_mp, GPOS_NEW(m_mp) CDXLPhysicalTableScan(m_mp, dxl_table_descr));
 
-		// GPDB_12_MERGE_FIXME: Computer stats & properties per scan
+		// GPDB_12_MERGE_FIXME: Compute stats & properties per scan
 		pdxlpropDTS->AddRef();
 		dxlnode->SetProperties(pdxlpropDTS);
 
 		// ColRef -> index in child table desc (per partition)
 		auto root_col_mapping = (*popDTS->GetRootColMappingPerPart())[ul];
-
-		// NB: since the order of part_colrefs matches that of columns in
-		// part_tabdesc, a value from root_col_mapping can be correctly used to
-		// index part_colrefs as well.
 
 		// construct projection list, re-ordered to match root DTS
 		CDXLNode *pdxlnPrL = PdxlnProjListForChildPart(
