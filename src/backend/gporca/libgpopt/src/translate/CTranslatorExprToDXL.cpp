@@ -1185,7 +1185,7 @@ CTranslatorExprToDXL::PdxlnDynamicTableScan(
 		const IMDRelation *part = m_pmda->RetrieveRel(part_mdid);
 
 		CTableDescriptor *part_tabdesc =
-			MakeTableDescForPart(part, pexprDTS->DeriveTableDescriptor());
+			MakeTableDescForPart(part, popDTS->Ptabdesc());
 
 		// Create new colrefs for the child partition. The ColRefs from root
 		// DTS, which may be used in any parent node, can no longer be exported
