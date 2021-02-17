@@ -3246,8 +3246,7 @@ CXformUtils::PexprBitmapSelectBestIndex(
 		const IMDIndex *pmdindex =
 			md_accessor->RetrieveIndex(pmdrel->IndexMDidAt(ul));
 
-		if (!pmdrel->IsPartialIndex(pmdindex->MDId()) &&
-			CXformUtils::FIndexApplicable(mp, pmdindex, pmdrel, pdrgpcrOutput,
+		if (CXformUtils::FIndexApplicable(mp, pmdindex, pmdrel, pdrgpcrOutput,
 										  pcrsReqd, pcrsScalar,
 										  IMDIndex::EmdindBitmap, altIndexType))
 		{
