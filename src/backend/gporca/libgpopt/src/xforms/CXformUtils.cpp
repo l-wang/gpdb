@@ -3798,7 +3798,8 @@ CXformUtils::PexprBitmapTableGet(CMemoryPool *mp, CLogical *popGet,
 			popDynamicGet->GetPartitionMdids()->AddRef();
 			popBitmapTableGet = GPOS_NEW(mp) CLogicalDynamicBitmapTableGet(
 				mp, ptabdesc, ulOriginOpId, pname, popDynamicGet->ScanId(),
-				pdrgpcrOutput, popDynamicGet->PdrgpdrgpcrPart(), NULL);
+				pdrgpcrOutput, popDynamicGet->PdrgpdrgpcrPart(),
+				popDynamicGet->GetPartitionMdids());
 		}
 		else
 		{
