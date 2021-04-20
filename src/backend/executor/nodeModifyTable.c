@@ -2578,9 +2578,9 @@ ExecModifyTable(PlanState *pstate)
 											 oldSlot);
 
 				/* Now apply the update. */
-				slot = ExecUpdate(node, resultRelInfo, tupleid, oldtuple, slot,
-								  planSlot, &node->mt_epqstate, estate,
-								  node->canSetTag);
+				slot = ExecUpdate(node, resultRelInfo, tupleid, oldtuple, slot, planSlot,
+								  segid,
+								  &node->mt_epqstate, estate, node->canSetTag);
 				break;
 			case CMD_DELETE:
 				slot = ExecDelete(node, resultRelInfo, tupleid, segid, oldtuple, planSlot,
@@ -2684,10 +2684,10 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 
 	if (CMD_UPDATE == operation)
 	{
-		mtstate->mt_isSplitUpdates = (bool *) palloc0(nplans * sizeof(bool));
+		mtstate->mt_isSplitUpdates = (bool *) palloc0(sizeof(bool));
 		if (node->isSplitUpdates)
 		{
-			if (list_length(node->isSplitUpdates) != nplans)
+			if (list_length(node->isSplitUpdates) != 1)
 				elog(ERROR, "ModifyTable node is missing is-split-update information");
 
 			i = 0;
@@ -3131,6 +3131,8 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		 * 'ctid' or 'wholerow' attribute depending on relkind.  For foreign
 		 * tables, the FDW might have created additional junk attr(s), but
 		 * those are no concern of ours.
+		 *
+		 * For GPDB, the junk attr also could be 'gp_segment_id' or 'DMLAction'.
 		 */
 		if (operation == CMD_UPDATE || operation == CMD_DELETE)
 		{
@@ -3144,25 +3146,26 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 				resultRelInfo->ri_RowIdAttNo =
 					ExecFindJunkAttributeInTlist(subplan->targetlist, "ctid");
 				if (!AttributeNumberIsValid(resultRelInfo->ri_RowIdAttNo))
-							elog(ERROR, "could not find junk ctid column");
+					elog(ERROR, "could not find junk ctid column");
 
-						/* Extra GPDB junk columns */
-						resultRelInfo->ri_segid_attno = ExecFindJunkAttribute(j, "gp_segment_id");
-						if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
-							elog(ERROR, "could not find junk gp_segment_id column");
+				/* Extra GPDB junk columns */
+				resultRelInfo->ri_segid_attno =
+					ExecFindJunkAttributeInTlist(subplan->targetlist, "gp_segment_id");
+				if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
+					elog(ERROR, "could not find junk gp_segment_id column");
 
-						if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
-						{
-							resultRelInfo->ri_action_attno = ExecFindJunkAttribute(j, "DMLAction");
-							if (!AttributeNumberIsValid(resultRelInfo->ri_action_attno))
-								elog(ERROR, "could not find junk action column");
-						}
-					}
-					else if (relkind == RELKIND_FOREIGN_TABLE)
-					{
-						/*
-						 * When there is a row-level trigger, there should be
-						  a
+				if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
+				{
+					resultRelInfo->ri_action_attno =
+						ExecFindJunkAttributeInTlist(subplan->targetlist, "DMLAction");
+					if (!AttributeNumberIsValid(resultRelInfo->ri_action_attno))
+						elog(ERROR, "could not find junk action column");
+				}
+			}
+			else if (relkind == RELKIND_FOREIGN_TABLE)
+			{
+				/*
+				 * When there is a row-level trigger, there should be a
 				 * wholerow attribute.  We also require it to be present in
 				 * UPDATE, so we can get the values of unchanged columns.
 				 */
