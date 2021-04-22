@@ -75,7 +75,7 @@ static void set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo 
 					  List *pathkeys);
 static CdbPathLocus
 adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
-							List *resultRelations, Path *subpath,
+							List *resultRelations, Path **subpath,
 							List *is_split_updates);
 
 /*****************************************************************************
@@ -5159,7 +5159,7 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
 	if (Gp_role == GP_ROLE_DISPATCH)
 		pathnode->path.locus =
 			adjust_modifytable_subpath(root, operation,
-										resultRelations, subpath,
+										resultRelations, &subpath,
 										is_split_updates);
 	else
 	{
@@ -5235,7 +5235,7 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
  */
 static CdbPathLocus
 adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
-							List *resultRelations, Path *subpath,
+							List *resultRelations, Path **subpath,
 							List *is_split_updates)
 {
 	/*
@@ -5283,11 +5283,11 @@ adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
 
 		if (operation == CMD_INSERT)
 		{
-			subpath = create_motion_path_for_insert(root, targetPolicy, subpath);
+			*subpath = create_motion_path_for_insert(root, targetPolicy, *subpath);
 		}
 		else if (operation == CMD_DELETE)
 		{
-			subpath = create_motion_path_for_upddel(root, rti, targetPolicy, subpath);
+			*subpath = create_motion_path_for_upddel(root, rti, targetPolicy, *subpath);
 		}
 		else if (operation == CMD_UPDATE)
 		{
@@ -5297,9 +5297,9 @@ adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
 			is_split_update = root->is_split_update;
 
 			if (is_split_update)
-				subpath = create_split_update_path(root, rti, targetPolicy, subpath);
+				*subpath = create_split_update_path(root, rti, targetPolicy, *subpath);
 			else
-				subpath = create_motion_path_for_upddel(root, rti, targetPolicy, subpath);
+				*subpath = create_motion_path_for_upddel(root, rti, targetPolicy, *subpath);
 
 //			lci = lnext(lci);
 		}
