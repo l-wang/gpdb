@@ -2843,16 +2843,33 @@ create_modifytable_plan(PlannerInfo *root, ModifyTablePath *best_path)
 {
 	ModifyTable *plan;
 	Path	   *subpath = best_path->subpath;
-	Plan	   *subplan;
+	Plan	   *subplan = NULL;
 
-	// FIXME: evaluate whether or not to bring back cdbpathtoplan_create_sri_plan()?
+	RangeTblEntry *rte = planner_rt_fetch(best_path->nominalRelation, root);
+	PlanSlice  *save_curSlice = root->curSlice;
+
+	/* Try the Single-Row-Insert optimization first. */
+	// FIXME: add this back
+//	subplan = cdbpathtoplan_create_sri_plan(rte, root, subpath, CP_EXACT_TLIST);
+
 	/* Subplan must produce exactly the specified tlist */
-	subplan = create_plan_recurse(root, subpath, CP_EXACT_TLIST);
+	if (!subplan)
+	{
+		subplan = create_plan_recurse(root, subpath, CP_EXACT_TLIST);
 
-	/* Transfer resname/resjunk labeling, too, to keep executor happy */
-	// FIXME: revisit the correctness of this
-	if (!root->is_split_update)
-		apply_tlist_labeling(subplan->targetlist, root->processed_tlist);
+		// FIXME: revisit the correctness of this
+		/*
+		 * Transfer resname/resjunk labeling, too, to keep executor happy.
+		 * But not if it's a Split Update. A Split Update contains an extra
+		 * DMLActionExpr column in its target list, so it doesn't match
+		 * subroot->processed_tlist. The code to create the Split Update node
+		 * takes care to label junk columns correctly, instead.
+		 */
+		if (!root->is_split_update)
+			apply_tlist_labeling(subplan->targetlist, root->processed_tlist);
+	}
+
+	root->curSlice = save_curSlice;
 
 	plan = make_modifytable(root,
 							subplan,

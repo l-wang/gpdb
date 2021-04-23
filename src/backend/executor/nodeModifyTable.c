@@ -2545,42 +2545,52 @@ ExecModifyTable(PlanState *pstate)
 								  estate, node->canSetTag, false /* splitUpdate */);
 				break;
 			case CMD_UPDATE:
-				if (AttributeNumberIsValid(action_attno))
+				if (!AttributeNumberIsValid(action_attno))
 				{
-					ereport(ERROR,
-							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								errmsg("split update"),
-								errdetail("FIXME: we need this.")));
-				}
+					/*
+					 * Make the new tuple by combining plan's output tuple with
+					 * the old tuple being updated.
+					 */
+					oldSlot = resultRelInfo->ri_oldTupleSlot;
+					if (oldtuple != NULL)
+					{
+						/* Use the wholerow junk attr as the old tuple. */
+						ExecForceStoreHeapTuple(oldtuple, oldSlot, false);
+					}
+					else
+					{
+						/* Fetch the most recent version of old tuple. */
+						Relation	relation = resultRelInfo->ri_RelationDesc;
 
-				/*
-				 * Make the new tuple by combining plan's output tuple with
-				 * the old tuple being updated.
-				 */
-				oldSlot = resultRelInfo->ri_oldTupleSlot;
-				if (oldtuple != NULL)
+						Assert(tupleid != NULL);
+						if (!table_tuple_fetch_row_version(relation, tupleid,
+														   SnapshotAny,
+														   oldSlot))
+							elog(ERROR, "failed to fetch tuple being updated");
+					}
+					slot = ExecGetUpdateNewTuple(resultRelInfo, planSlot,
+												 oldSlot);
+
+					/* normal non-split UPDATE */
+					slot = ExecUpdate(node, resultRelInfo, tupleid, oldtuple, slot, planSlot,
+									  segid,
+									  &node->mt_epqstate, estate, node->canSetTag);
+				}
+				else if (DML_INSERT == action)
 				{
-					/* Use the wholerow junk attr as the old tuple. */
-					ExecForceStoreHeapTuple(oldtuple, oldSlot, false);
+					slot = ExecSplitUpdate_Insert(node, resultRelInfo, slot, planSlot,
+												  estate, node->canSetTag);
 				}
-				else
+				else /* DML_DELETE */
 				{
-					/* Fetch the most recent version of old tuple. */
-					Relation	relation = resultRelInfo->ri_RelationDesc;
-
-					Assert(tupleid != NULL);
-					if (!table_tuple_fetch_row_version(relation, tupleid,
-													   SnapshotAny,
-													   oldSlot))
-						elog(ERROR, "failed to fetch tuple being updated");
+					slot = ExecDelete(node, resultRelInfo, tupleid, segid, oldtuple, planSlot,
+									  &node->mt_epqstate, estate,
+									  false,
+									  false /* canSetTag */,
+									  true /* changingPart */ ,
+									  true /* splitUpdate */ ,
+									  NULL, NULL);
 				}
-				slot = ExecGetUpdateNewTuple(resultRelInfo, planSlot,
-											 oldSlot);
-
-				/* Now apply the update. */
-				slot = ExecUpdate(node, resultRelInfo, tupleid, oldtuple, slot, planSlot,
-								  segid,
-								  &node->mt_epqstate, estate, node->canSetTag);
 				break;
 			case CMD_DELETE:
 				slot = ExecDelete(node, resultRelInfo, tupleid, segid, oldtuple, planSlot,
