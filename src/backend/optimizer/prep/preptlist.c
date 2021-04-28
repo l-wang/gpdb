@@ -314,6 +314,10 @@ extract_update_colnos(List *tlist)
 /*
  * is_split_update
  *
+ * FIXME: This logic is mostly copied from expand_targetlist(), investigate if
+ * we still need this logic over there, if we do, make use of this function
+ * in preprocess_targetlist() too. Context: see comments in preprocess_targetlist().
+ *
  * If an UPDATE can move the tuples from one segment to another, we will
  * need to create a Split Update node for it. The node is created later
  * in the planning, but if it's needed, and the table has OIDs, we must
