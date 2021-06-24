@@ -216,6 +216,9 @@ enum EOptTraceFlag
 	// Enable handling external partitioned tables
 	EopttraceEnableExternalPartitionedTables = 103040,
 
+	// Enable predicate push down to CTE producer.
+	EopttraceEnableCTEPredicatePushdown = 103041,
+
 	///////////////////////////////////////////////////////
 	///////////////////// statistics flags ////////////////
 	//////////////////////////////////////////////////////
