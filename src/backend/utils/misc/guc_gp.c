@@ -375,6 +375,7 @@ bool		optimizer_multilevel_partitioning;
 bool 		optimizer_parallel_union;
 bool		optimizer_array_constraints;
 bool		optimizer_cte_inlining;
+bool		optimizer_enable_cte_predicate_pushdown;
 bool		optimizer_enable_space_pruning;
 bool		optimizer_enable_associativity;
 bool		optimizer_enable_eageragg;
@@ -2422,6 +2423,17 @@ struct config_bool ConfigureNamesBool_gp[] =
 		},
 		&optimizer_cte_inlining,
 		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"optimizer_enable_cte_predicate_pushdown", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("Enable predicate push down to CTE producer"),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_enable_cte_predicate_pushdown,
+		true,
 		NULL, NULL, NULL
 	},
 

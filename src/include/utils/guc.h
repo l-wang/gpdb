@@ -560,6 +560,7 @@ extern bool optimizer_multilevel_partitioning;
 extern bool optimizer_parallel_union;
 extern bool optimizer_array_constraints;
 extern bool optimizer_cte_inlining;
+extern bool optimizer_enable_cte_predicate_pushdown;
 extern bool optimizer_enable_space_pruning;
 extern bool optimizer_enable_associativity;
 extern bool optimizer_enable_range_predicate_dpe;

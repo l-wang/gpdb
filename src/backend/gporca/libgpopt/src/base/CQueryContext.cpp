@@ -72,7 +72,10 @@ CQueryContext::CQueryContext(CMemoryPool *mp, CExpression *pexpr,
 	SetSystemCols(mp);
 
 	// collect CTE predicates and add them to CTE producer expressions
-	CExpressionPreprocessor::AddPredsToCTEProducers(mp, m_pexpr);
+	if (GPOS_FTRACE(EopttraceEnableCTEPredicatePushdown))
+	{
+		CExpressionPreprocessor::AddPredsToCTEProducers(mp, m_pexpr);
+	}
 
 	CColumnFactory *col_factory = COptCtxt::PoctxtFromTLS()->Pcf();
 

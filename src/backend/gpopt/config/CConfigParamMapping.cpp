@@ -184,6 +184,11 @@ CConfigParamMapping::SConfigMappingElem CConfigParamMapping::m_elements[] = {
 	 false,	 // m_negate_param
 	 GPOS_WSZ_LIT("Enable CTE inlining.")},
 
+	{EopttraceEnableCTEPredicatePushdown,
+	 &optimizer_enable_cte_predicate_pushdown,
+	 false,	 // m_negate_param
+	 GPOS_WSZ_LIT("Enable predicate push down to CTE producer.")},
+
 	{EopttraceEnableConstantExpressionEvaluation,
 	 &optimizer_enable_constant_expression_evaluation,
 	 false,	 // m_negate_param

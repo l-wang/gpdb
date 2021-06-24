@@ -352,6 +352,7 @@
 		"optimizer_cost_model",
 		"optimizer_cost_threshold",
 		"optimizer_cte_inlining",
+		"optimizer_enable_cte_predicate_pushdown",
 		"optimizer_damping_factor_filter",
 		"optimizer_damping_factor_groupby",
 		"optimizer_damping_factor_join",

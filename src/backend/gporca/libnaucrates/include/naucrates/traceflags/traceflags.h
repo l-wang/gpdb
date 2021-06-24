@@ -210,6 +210,9 @@ enum EOptTraceFlag
 	// Use legacy (cdbhash) opfamilies for compatibility
 	EopttraceUseLegacyOpfamilies = 103039,
 
+	// Enable predicate push down to CTE producer.
+	EopttraceEnableCTEPredicatePushdown = 103040,
+
 	///////////////////////////////////////////////////////
 	///////////////////// statistics flags ////////////////
 	//////////////////////////////////////////////////////
