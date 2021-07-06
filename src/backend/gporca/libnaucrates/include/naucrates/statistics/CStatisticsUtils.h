@@ -169,7 +169,7 @@ public:
 	static void UpdateDisjStatistics(
 		CMemoryPool *mp, CBitSet *non_updatable_cols,
 		CDouble input_disjunct_rows, CDouble local_rows,
-		CHistogram *previous_histogram,
+		CHistogram *local_histogram,
 		UlongToHistogramMap *disjunctive_result_histograms, ULONG last_colid);
 
 	// given a disjunction filter, generate a bit set of columns whose
