@@ -690,10 +690,13 @@ CStatisticsUtils::UpdateDisjStatistics(
 	CMemoryPool *mp, CBitSet *dont_update_stats_bitset,
 	CDouble input_disjunct_rows, CDouble local_rows,
 	CHistogram *local_histogram,
-	UlongToHistogramMap *disjunctive_result_histograms, ULONG colid)
+	UlongToHistogramMap *disjunctive_result_histograms, ULONG colid,
+	BOOL *unioned)
 {
 	GPOS_ASSERT(nullptr != dont_update_stats_bitset);
 	GPOS_ASSERT(nullptr != disjunctive_result_histograms);
+	// did we union the two input histograms?
+	*unioned = false;
 
 	if (nullptr != local_histogram && gpos::ulong_max != colid &&
 		!dont_update_stats_bitset->Get(colid))
@@ -712,6 +715,7 @@ CStatisticsUtils::UpdateDisjStatistics(
 				local_histogram->MakeUnionHistogramNormalize(
 					local_rows, result_histogram, input_disjunct_rows,
 					&output_rows);
+			*unioned = true;
 
 			GPOS_DELETE(local_histogram);
 			local_histogram = new_histogram;
@@ -873,17 +877,17 @@ CStatisticsUtils::PrintHistogramMap(IOstream &os,
 //
 //---------------------------------------------------------------------------
 UlongToHistogramMap *
-CStatisticsUtils::MergeHistogramMapsForDisjPreds(CMemoryPool *mp,
-												 CBitSet *non_updatable_cols,
-												 UlongToHistogramMap *hmap1,
-												 UlongToHistogramMap *hmap2,
-												 CDouble rows1, CDouble rows2)
+CStatisticsUtils::MergeHistogramMapsForDisjPreds(
+	CMemoryPool *mp, CBitSet *non_updatable_cols, UlongToHistogramMap *hmap1,
+	UlongToHistogramMap *hmap2, CDouble rows1, CDouble rows2, BOOL *merged)
 {
 	GPOS_ASSERT(nullptr != non_updatable_cols);
 	GPOS_ASSERT(nullptr != hmap1);
 	GPOS_ASSERT(nullptr != hmap2);
 
 	CDouble output_rows(CStatistics::MinRows.Get());
+	// did we merge two histograms from both maps into one histogram?
+	*merged = false;
 
 	UlongToHistogramMap *merged_hmap = GPOS_NEW(mp) UlongToHistogramMap(mp);
 
@@ -922,6 +926,7 @@ CStatisticsUtils::MergeHistogramMapsForDisjPreds(CMemoryPool *mp,
 					CHistogram *normalized_union_histogram =
 						histogram1->MakeUnionHistogramNormalize(
 							rows1, histogram2, rows2, &output_rows);
+					*merged = true;
 
 					AddHistogram(mp, colid, normalized_union_histogram,
 								 merged_hmap, true /* fReplaceOld */);

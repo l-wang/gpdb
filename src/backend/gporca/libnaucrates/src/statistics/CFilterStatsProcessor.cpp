@@ -476,6 +476,11 @@ CFilterStatsProcessor::MakeHistHashMapDisjFilter(
 	UlongToHistogramMap *disjunctive_result_histograms =
 		GPOS_NEW(mp) UlongToHistogramMap(mp);
 
+	// Current input rows of the disjunctive_result_histograms. We update it
+	// only after any histogram in disjunctive_result_histograms is merged from
+	// two histograms for the same col.
+	CDouble current_disjunctive_result_rows_estimate(input_rows);
+
 	// The colid extracted from the previous disjunctive child predicate
 	ULONG previous_colid = gpos::ulong_max;
 	// Histogram of previous single col
@@ -511,10 +516,22 @@ CFilterStatsProcessor::MakeHistHashMapDisjFilter(
 		{
 			scale_factors->Append(GPOS_NEW(mp)
 									  CDouble(previous_scale_factor.Get()));
+			BOOL unioned = false;
 			CStatisticsUtils::UpdateDisjStatistics(
-				mp, non_updatable_cols, input_rows,
+				mp, non_updatable_cols,
+				current_disjunctive_result_rows_estimate,
 				previous_col_cumulative_rows, previous_col_histogram,
-				disjunctive_result_histograms, previous_colid);
+				disjunctive_result_histograms, previous_colid, &unioned);
+			if (unioned)
+			{
+				// At least one histogram in disjunctive_result_histograms was
+				// updated from both input histograms, hence update input rows
+				// of the disjunctive_result_histograms
+				current_disjunctive_result_rows_estimate =
+					input_rows /
+					CScaleFactorUtils::CalcScaleFactorCumulativeDisj(
+						stats_config, scale_factors, input_rows);
+			}
 			previous_col_histogram = nullptr;
 		}
 
@@ -615,14 +632,22 @@ CFilterStatsProcessor::MakeHistHashMapDisjFilter(
 			GPOS_ASSERT(nullptr != child_histograms);
 			GPOS_ASSERT(nullptr == disjunctive_child_col_histogram);
 
-			CDouble current_rows_estimate =
-				input_rows / CScaleFactorUtils::CalcScaleFactorCumulativeDisj(
-								 stats_config, scale_factors, input_rows);
+			BOOL merged = false;
 			UlongToHistogramMap *merged_histograms =
 				CStatisticsUtils::MergeHistogramMapsForDisjPreds(
 					mp, non_updatable_cols, disjunctive_result_histograms,
-					child_histograms, current_rows_estimate,
-					num_rows_disj_child);
+					child_histograms, current_disjunctive_result_rows_estimate,
+					num_rows_disj_child, &merged);
+			if (merged)
+			{
+				// At least one histogram in disjunctive_result_histograms was
+				// merged from both input histogram maps, hence update input rows
+				// of the disjunctive_result_histograms
+				current_disjunctive_result_rows_estimate =
+					input_rows /
+					CScaleFactorUtils::CalcScaleFactorCumulativeDisj(
+						stats_config, scale_factors, input_rows);
+			}
 			disjunctive_result_histograms->Release();
 			disjunctive_result_histograms = merged_histograms;
 
@@ -635,9 +660,11 @@ CFilterStatsProcessor::MakeHistHashMapDisjFilter(
 	}
 
 	// process the result and scaling factor of the last predicate
+	BOOL unioned = false;
 	CStatisticsUtils::UpdateDisjStatistics(
-		mp, non_updatable_cols, input_rows, previous_col_cumulative_rows,
-		previous_col_histogram, disjunctive_result_histograms, previous_colid);
+		mp, non_updatable_cols, current_disjunctive_result_rows_estimate,
+		previous_col_cumulative_rows, previous_col_histogram,
+		disjunctive_result_histograms, previous_colid, &unioned);
 	previous_col_histogram = nullptr;
 	scale_factors->Append(GPOS_NEW(mp) CDouble(
 		std::max(CStatistics::MinRows.Get(), previous_scale_factor.Get())));

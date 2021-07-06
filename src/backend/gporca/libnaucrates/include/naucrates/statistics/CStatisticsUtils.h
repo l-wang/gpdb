@@ -170,7 +170,8 @@ public:
 		CMemoryPool *mp, CBitSet *non_updatable_cols,
 		CDouble input_disjunct_rows, CDouble local_rows,
 		CHistogram *local_histogram,
-		UlongToHistogramMap *disjunctive_result_histograms, ULONG last_colid);
+		UlongToHistogramMap *disjunctive_result_histograms, ULONG last_colid,
+		BOOL *unioned);
 
 	// given a disjunction filter, generate a bit set of columns whose
 	// histogram buckets cannot be changed by applying the predicates in the
@@ -189,7 +190,7 @@ public:
 	static UlongToHistogramMap *MergeHistogramMapsForDisjPreds(
 		CMemoryPool *mp, CBitSet *non_updatable_cols,
 		UlongToHistogramMap *hmap1, UlongToHistogramMap *hmap2, CDouble rows1,
-		CDouble rows2);
+		CDouble rows2, BOOL *merged);
 
 	// helper method to copy the hash map of histograms
 	static UlongToHistogramMap *CopyHistHashMap(
