@@ -1803,6 +1803,8 @@ CHistogram::MakeUnionHistogramNormalize(CDouble rows,
 	GPOS_ASSERT(other_histogram->IsValid());
 	if (!other_histogram->IsWellDefined() && !IsWellDefined())
 	{
+		*num_output_rows = CDouble(std::max(rows.Get(), rows_other.Get()));
+
 		CHistogram *result_histogram =
 			GPOS_NEW(m_mp) CHistogram(m_mp, false /* is_well_defined */);
 		return result_histogram;
