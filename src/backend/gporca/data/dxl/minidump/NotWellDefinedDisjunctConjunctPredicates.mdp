@@ -7,7 +7,7 @@
 	  of predicates on column "a::int8" of the CTE producer are not well defined,
 	  in this case, we should not merge these histograms and generate a well
 	  defined histogram. The cardinality estimation of this query should be ~160 rows.
-	  (FXIEM: Ideally, it should be ~400 rows. We currently get 160 rows because
+	  (FIXME: Ideally, it should be ~400 rows. We currently get 160 rows because
 	  of the double application of the pushed down predicate to the CTE producer.)
 
 	  create table bar (a int, b int);
